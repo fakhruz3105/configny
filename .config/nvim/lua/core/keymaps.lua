@@ -10,7 +10,7 @@ local opts = { noremap = true, silent = true }
 -- Keymaps set here
 vim.keymap.set("n", "<leader>s", "<cmd> w <CR>", opts)
 vim.keymap.set("n", "<leader>w", "<cmd> bd <CR>", opts)
-vim.keymap.set("n", "<leader>Q", "<cmd> q <CR>", opts)
+vim.keymap.set("n", "<leader>q", "<cmd> q <CR>", opts)
 
 -- Telescope keymaps
 vim.keymap.set("n", "<C-f>", ":Telescope live_grep <CR>", opts)
