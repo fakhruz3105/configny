@@ -17,6 +17,28 @@ NC='\033[0m' # No Color
 # Get the directory where this script is located (the dotfiles repo)
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Detect the real user's home directory (even when run with sudo)
+if [[ -n "${SUDO_USER:-}" ]]; then
+    # Running with sudo - get the actual user's home directory
+    REAL_USER="$SUDO_USER"
+    REAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+else
+    # Not running with sudo
+    REAL_USER="$USER"
+    REAL_HOME="$HOME"
+fi
+
+# Override HOME to use the real user's home directory
+HOME="$REAL_HOME"
+export HOME
+
+# Detect if sudo is needed (check if running as root)
+if [[ $EUID -eq 0 ]]; then
+    SUDO=""
+else
+    SUDO="sudo"
+fi
+
 #===============================================================================
 # Distro Detection & Package Manager
 #===============================================================================
@@ -45,41 +67,41 @@ detect_distro() {
     case "$DISTRO_ID" in
         ubuntu|debian|linuxmint|pop|elementary|zorin|kali)
             PKG_MANAGER="apt"
-            PKG_INSTALL="sudo apt update && sudo apt install -y"
+            PKG_INSTALL="$SUDO apt update && $SUDO apt install -y"
             ;;
         fedora)
             PKG_MANAGER="dnf"
-            PKG_INSTALL="sudo dnf install -y"
+            PKG_INSTALL="$SUDO dnf install -y"
             ;;
         rhel|centos|rocky|alma|oracle)
             # Check if dnf is available (RHEL 8+), otherwise use yum
             if command -v dnf &> /dev/null; then
                 PKG_MANAGER="dnf"
-                PKG_INSTALL="sudo dnf install -y"
+                PKG_INSTALL="$SUDO dnf install -y"
             else
                 PKG_MANAGER="yum"
-                PKG_INSTALL="sudo yum install -y"
+                PKG_INSTALL="$SUDO yum install -y"
             fi
             ;;
         arch|manjaro|endeavouros|garuda)
             PKG_MANAGER="pacman"
-            PKG_INSTALL="sudo pacman -S --noconfirm"
+            PKG_INSTALL="$SUDO pacman -S --noconfirm"
             ;;
         opensuse*|suse|sles)
             PKG_MANAGER="zypper"
-            PKG_INSTALL="sudo zypper install -y"
+            PKG_INSTALL="$SUDO zypper install -y"
             ;;
         alpine)
             PKG_MANAGER="apk"
-            PKG_INSTALL="sudo apk add"
+            PKG_INSTALL="$SUDO apk add"
             ;;
         void)
             PKG_MANAGER="xbps"
-            PKG_INSTALL="sudo xbps-install -y"
+            PKG_INSTALL="$SUDO xbps-install -y"
             ;;
         gentoo)
             PKG_MANAGER="emerge"
-            PKG_INSTALL="sudo emerge"
+            PKG_INSTALL="$SUDO emerge"
             ;;
         nixos)
             PKG_MANAGER="nix"
@@ -90,24 +112,24 @@ detect_distro() {
             case "$DISTRO_ID_LIKE" in
                 *debian*|*ubuntu*)
                     PKG_MANAGER="apt"
-                    PKG_INSTALL="sudo apt update && sudo apt install -y"
+                    PKG_INSTALL="$SUDO apt update && $SUDO apt install -y"
                     ;;
                 *rhel*|*fedora*|*centos*)
                     if command -v dnf &> /dev/null; then
                         PKG_MANAGER="dnf"
-                        PKG_INSTALL="sudo dnf install -y"
+                        PKG_INSTALL="$SUDO dnf install -y"
                     else
                         PKG_MANAGER="yum"
-                        PKG_INSTALL="sudo yum install -y"
+                        PKG_INSTALL="$SUDO yum install -y"
                     fi
                     ;;
                 *arch*)
                     PKG_MANAGER="pacman"
-                    PKG_INSTALL="sudo pacman -S --noconfirm"
+                    PKG_INSTALL="$SUDO pacman -S --noconfirm"
                     ;;
                 *suse*)
                     PKG_MANAGER="zypper"
-                    PKG_INSTALL="sudo zypper install -y"
+                    PKG_INSTALL="$SUDO zypper install -y"
                     ;;
                 *)
                     PKG_MANAGER="unknown"
@@ -466,22 +488,22 @@ install_neovim() {
     
     case "$PKG_MANAGER" in
         apt)
-            sudo apt update && sudo apt install -y $nvim_deps
+            $SUDO apt update && $SUDO apt install -y $nvim_deps
             ;;
         dnf)
-            sudo dnf install -y $nvim_deps
+            $SUDO dnf install -y $nvim_deps
             ;;
         yum)
-            sudo yum install -y $nvim_deps
+            $SUDO yum install -y $nvim_deps
             ;;
         pacman)
-            sudo pacman -S --noconfirm $nvim_deps
+            $SUDO pacman -S --noconfirm $nvim_deps
             ;;
         zypper)
-            sudo zypper install -y $nvim_deps
+            $SUDO zypper install -y $nvim_deps
             ;;
         apk)
-            sudo apk add $nvim_deps
+            $SUDO apk add $nvim_deps
             ;;
         *)
             log_warning "Unknown package manager, attempting to install deps anyway..."
@@ -498,9 +520,9 @@ install_neovim() {
     
     log_info "Building Neovim (this may take a few minutes)..."
     make CMAKE_BUILD_TYPE=RelWithDebInfo
-    
+
     log_info "Installing Neovim..."
-    sudo make install
+    $SUDO make install
     
     # Cleanup
     cd - > /dev/null
@@ -757,11 +779,13 @@ EOF
 
 main() {
     local command="${1:-install}"
-    
+
     echo
     echo "========================================"
     echo "  Dotfiles Installation Script"
     echo "  Repository: $DOTFILES_DIR"
+    echo "  Target User: $REAL_USER"
+    echo "  Target Home: $HOME"
     echo "========================================"
     echo
     
