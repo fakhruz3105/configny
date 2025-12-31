@@ -1,0 +1,9 @@
+vim.opt.clipboard = "unnamedplus"
+vim.wo.number = true
+vim.o.ignorecase = true
+vim.o.shiftwidth = 4
+vim.o.tabstop = 4
+vim.o.softtabstop = 4
+vim.o.expandtab = true
+vim.o.scrolloff = 4
+vim.o.sidescrolloff = 8
