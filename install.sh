@@ -23,9 +23,9 @@ if [[ -n "${SUDO_USER:-}" ]]; then
     REAL_USER="$SUDO_USER"
     REAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
 else
-    # Not running with sudo
-    REAL_USER="$USER"
-    REAL_HOME="$HOME"
+    # Not running with sudo - use USER if set, otherwise get from whoami
+    REAL_USER="${USER:-$(whoami)}"
+    REAL_HOME="${HOME:-$(eval echo ~$REAL_USER)}"
 fi
 
 # Override HOME to use the real user's home directory
