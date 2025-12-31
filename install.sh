@@ -328,24 +328,6 @@ install_zsh() {
     # Set Zsh as default shell
     local zsh_path
     zsh_path="$(which zsh)"
-    
-    if [[ "$current_shell" == "$zsh_path" ]]; then
-        log_success "Zsh is already the default shell"
-    else
-        log_info "Setting Zsh as default shell..."
-        
-        # Ensure zsh is in /etc/shells
-        if ! grep -q "^$zsh_path$" /etc/shells; then
-            log_info "Adding $zsh_path to /etc/shells"
-            echo "$zsh_path" | sudo tee -a /etc/shells > /dev/null
-        fi
-        
-        # Change default shell
-        chsh -s "$zsh_path"
-        log_success "Default shell changed to Zsh"
-        log_warning "Please log out and log back in for the shell change to take effect"
-    fi
-    echo
 }
 
 install_dependencies() {
