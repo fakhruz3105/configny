@@ -326,8 +326,6 @@ install_zsh() {
     fi
     
     # Set Zsh as default shell
-    local current_shell
-    current_shell="$(getent passwd "$USER" | cut -d: -f7)"
     local zsh_path
     zsh_path="$(which zsh)"
     
@@ -355,6 +353,13 @@ install_dependencies() {
     echo
     
     local deps_to_install=()
+
+    # Check for which
+    if ! command -v which &> /dev/null; then
+        deps_to_install+=("which")
+    else
+        log_success "which is installed"
+    fi
     
     # Check for git
     if ! command -v git &> /dev/null; then
