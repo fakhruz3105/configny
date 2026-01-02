@@ -448,55 +448,6 @@ install_ripgrep() {
     echo
 }
 
-install_autojump() {
-    log_info "Checking autojump installation..."
-    echo
-
-    if command -v autojump &> /dev/null; then
-        log_success "autojump is already installed: $(autojump --version 2>&1 | head -1 || echo 'version unknown')"
-    else
-        log_info "Installing autojump..."
-
-        case "$PKG_MANAGER" in
-            apt)
-                pkg_install autojump
-                ;;
-            dnf|yum)
-                pkg_install autojump
-                ;;
-            pacman)
-                pkg_install autojump
-                ;;
-            zypper)
-                pkg_install autojump
-                ;;
-            apk)
-                pkg_install autojump
-                ;;
-            *)
-                log_info "Installing autojump from Git (package manager not recognized)..."
-                local autojump_dir="/tmp/autojump-install-$$"
-                git clone https://github.com/wting/autojump.git "$autojump_dir"
-                cd "$autojump_dir" || { log_error "Failed to enter autojump directory"; return 1; }
-                ./install.py
-                cd - > /dev/null
-                rm -rf "$autojump_dir"
-                ;;
-        esac
-
-        if command -v autojump &> /dev/null; then
-            log_success "autojump installed"
-        else
-            log_warning "autojump installation may have failed. Please check manually."
-        fi
-    fi
-
-    log_info "To enable autojump, make sure your .zshrc contains:"
-    echo -e "    ${GREEN}[[ -s ~/.autojump/etc/profile.d/autojump.sh ]] && source ~/.autojump/etc/profile.d/autojump.sh${NC}"
-    echo -e "    ${GREEN}autoload -U compinit && compinit -u${NC}"
-    echo
-}
-
 install_atuin() {
     log_info "Checking Atuin installation..."
     echo
@@ -845,7 +796,6 @@ main() {
             install_ripgrep
             install_neovim
             install_rust
-            install_autojump
             install_atuin
             install_zsh
             install_oh_my_zsh
