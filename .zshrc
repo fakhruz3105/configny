@@ -151,3 +151,4 @@ eval "$(atuin init zsh)"
 [[ -s "/home/razi/.gvm/scripts/gvm" ]] && source "/home/razi/.gvm/scripts/gvm"
 
 alias txs='/home/razi/.local/bin/tmux-session'
+. /usr/share/autojump/autojump.zsh
