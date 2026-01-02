@@ -140,6 +140,9 @@ alias open="explorer.exe"
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
+# cargo
+export PATH="$HOME/.cargo/bin:$PATH"
+
 # Claude Code Templates - Global Agents
 export PATH="/home/razi/.claude-code-templates/bin:$PATH"
 
