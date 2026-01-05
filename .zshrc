@@ -131,7 +131,7 @@ case ":$PATH:" in
 esac
 # pnpm end
 
-alias open="explorer.exe"
+alias open="thunar"
 
 # bun completions
 [ -s "/home/razi/.bun/_bun" ] && source "/home/razi/.bun/_bun"
