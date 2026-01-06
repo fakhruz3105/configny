@@ -14,7 +14,7 @@ vim.keymap.set("n", "<leader>q", "<cmd> q <CR>", opts)
 
 -- Telescope keymaps
 vim.keymap.set("n", "<C-f>", ":Telescope live_grep <CR>", opts)
-vim.keymap.set("n", "<F1>", ":Telescope find_files <CR>", opts)
+vim.keymap.set("n", "<F1>", ":Telescope find_files no_ignore=true hidden=true <CR>", opts)
 vim.keymap.set("n", "<F3>", ":Telescope buffers <CR>", opts)
 
 -- Neotree keymaps

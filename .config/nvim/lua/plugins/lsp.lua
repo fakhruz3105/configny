@@ -163,6 +163,7 @@ return {
 					},
 				},
 			},
+			marksman = {},
 		}
 
 		-- Ensure the servers and tools above are installed
@@ -182,5 +183,40 @@ return {
 			vim.lsp.config(server, cfg)
 			vim.lsp.enable(server)
 		end
+
+		vim.diagnostic.config({
+			-- Show inline errors (virtual text)
+			virtual_text = {
+				prefix = "●", -- Could be '■', '▎', 'x'
+				source = "if_many", -- Or "always"
+			},
+			-- Show signs in the gutter (left side)
+			signs = true,
+			-- Underline the error
+			underline = true,
+			-- Update diagnostics while typing? (False is usually better for performance)
+			update_in_insert = false,
+			-- Sort by severity (Error > Warning > Info)
+			severity_sort = true,
+		})
+
+		-- 3. OPTIONAL: Change the gutter icons
+		local signs = { Error = "✘", Warn = "▲", Hint = "⚑", Info = "»" }
+		for type, icon in pairs(signs) do
+			local hl = "DiagnosticSign" .. type
+			vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = hl })
+		end
+
+		local diagnostics_active = true
+		vim.keymap.set("n", "<leader>td", function()
+			diagnostics_active = not diagnostics_active
+			if diagnostics_active then
+				vim.diagnostic.enable()
+				print("Diagnostics: ON")
+			else
+				vim.diagnostic.enable(false)
+				print("Diagnostics: OFF")
+			end
+		end, { desc = "Toggle Diagnostics" })
 	end,
 }

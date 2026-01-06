@@ -80,30 +80,29 @@ return { -- Autocompletion
 			--
 			-- No, but seriously. Please read `:help ins-completion`, it is really good!
 			mapping = cmp.mapping.preset.insert({
-				-- Select the [n]ext item
-				["<C-n>"] = cmp.mapping.select_next_item(),
-				-- Select the [p]revious item
+				-- Trigger completion or select next item
+				["<C-n>"] = cmp.mapping(function(fallback)
+					if cmp.visible() then
+						cmp.select_next_item()
+					else
+						cmp.complete()
+					end
+				end, { "i", "s" }),
+				-- Select previous item
 				["<C-p>"] = cmp.mapping.select_prev_item(),
 
 				-- Scroll the documentation window [b]ack / [f]orward
 				["<C-b>"] = cmp.mapping.scroll_docs(-4),
 				["<C-f>"] = cmp.mapping.scroll_docs(4),
 
-				-- Accept ([y]es) the completion.
-				--  This will auto-import if your LSP supports it.
-				--  This will expand snippets if the LSP sent a snippet.
-				["<C-y>"] = cmp.mapping.confirm({ select = true }),
+				-- Accept completion with Enter (only if explicitly selected)
+				["<CR>"] = cmp.mapping.confirm({ select = false }),
 
-				-- If you prefer more traditional completion keymaps,
-				-- you can uncomment the following lines
-				--['<CR>'] = cmp.mapping.confirm { select = true },
-				--['<Tab>'] = cmp.mapping.select_next_item(),
-				--['<S-Tab>'] = cmp.mapping.select_prev_item(),
+				-- Accept completion with Tab (auto-selects first item)
+				-- Note: Tab behavior is configured below with snippet navigation
 
-				-- Manually trigger a completion from nvim-cmp.
-				--  Generally you don't need this, because nvim-cmp will display
-				--  completions whenever it has completion options available.
-				["<C-Space>"] = cmp.mapping.complete({}),
+				-- Manually trigger completion menu (even in empty space)
+				["<C-Space>"] = cmp.mapping.complete(),
 
 				-- Think of <c-l> as moving to the right of your snippet expansion.
 				--  So if you have a snippet that's like:
@@ -129,7 +128,7 @@ return { -- Autocompletion
 				-- Select next/previous item with Tab / Shift + Tab
 				["<Tab>"] = cmp.mapping(function(fallback)
 					if cmp.visible() then
-						cmp.select_next_item()
+						cmp.confirm({ select = true })
 					elseif luasnip.expand_or_locally_jumpable() then
 						luasnip.expand_or_jump()
 					else
