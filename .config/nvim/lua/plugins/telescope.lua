@@ -23,6 +23,11 @@ return {
 					},
 				},
 			},
+			pickers = {
+				find_files = {
+					file_ignore_patterns = { "node_modules", ".git" }, -- Added .git here as well, as it is usually unwanted
+				},
+			},
 		})
 	end,
 }

@@ -151,6 +151,6 @@ export PATH="/home/razi/.claude-code-templates/bin:$PATH"
 
 eval "$(atuin init zsh)"
 
-[[ -s "/home/razi/.gvm/scripts/gvm" ]] && source "/home/razi/.gvm/scripts/gvm"
+[[ -s "/home/razi/.gvm/scripts/gvm" ]] && source "/home/razi/.gvm/scripts/gvm" &>/dev/null
 
-alias txs='/home/razi/.local/bin/tmux-session'
+alias txs="/home/razi/.local/bin/tmux-session"
