@@ -63,6 +63,10 @@ return {
 				--  For example, in C this would take you to the header.
 				map("gD", vim.lsp.buf.declaration, "[G]oto [D]eclaration")
 
+				-- Show diagnostics in a floating window
+				map("gl", vim.diagnostic.open_float, "Show [L]ine Diagnostics")
+				map("<leader>e", vim.diagnostic.open_float, "Show [E]rror Diagnostics")
+
 				-- The following two autocommands are used to highlight references of the
 				-- word under your cursor when your cursor rests there for a little while.
 				--    See `:help CursorHold` for information about when this is executed
@@ -133,7 +137,9 @@ return {
 				},
 				filetypes = {
 					"javascript",
+					"javascriptreact",
 					"typescript",
+					"typescriptreact",
 					"vue",
 				},
 			},
@@ -185,11 +191,8 @@ return {
 		end
 
 		vim.diagnostic.config({
-			-- Show inline errors (virtual text)
-			virtual_text = {
-				prefix = "●", -- Could be '■', '▎', 'x'
-				source = "if_many", -- Or "always"
-			},
+			-- Disable inline errors (use floating window instead)
+			virtual_text = false,
 			-- Show signs in the gutter (left side)
 			signs = true,
 			-- Underline the error
@@ -198,6 +201,13 @@ return {
 			update_in_insert = false,
 			-- Sort by severity (Error > Warning > Info)
 			severity_sort = true,
+			-- Customize floating window appearance
+			float = {
+				border = "rounded",
+				source = "always",
+				header = "",
+				prefix = "",
+			},
 		})
 
 		-- 3. OPTIONAL: Change the gutter icons

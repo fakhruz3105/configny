@@ -16,6 +16,15 @@ return {
 
 		current_line_blame_formatter = "<author>, <author_time:%R> - <summary>",
 
+		-- Preview window styling
+		preview_config = {
+			border = "rounded",
+			style = "minimal",
+			relative = "cursor",
+			row = 0,
+			col = 1,
+		},
+
 		-- 3. Keymaps
 		on_attach = function(bufnr)
 			local gs = package.loaded.gitsigns
@@ -51,6 +60,10 @@ return {
 			map("n", "<leader>hs", gs.stage_hunk, { desc = "Stage Hunk" })
 			map("n", "<leader>hr", gs.reset_hunk, { desc = "Reset Hunk" })
 			map("n", "<leader>hp", gs.preview_hunk, { desc = "Preview Hunk" })
+			map("n", "<leader>hb", gs.blame_line, { desc = "Blame Line" })
+			map("n", "gh", function()
+				gs.blame_line({ full = true })
+			end, { desc = "Show Line Git History" })
 			map("n", "<leader>tb", gs.toggle_current_line_blame, { desc = "Toggle Line Blame" })
 			map("n", "<leader>hd", gs.diffthis, { desc = "Diff This" })
 
