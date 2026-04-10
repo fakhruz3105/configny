@@ -2,13 +2,14 @@ return {
 	{
 		"nvim-lua/plenary.nvim",
 		config = function()
-			local state = {
-				floating = {
-					buf = nil,
-					win = nil,
-					term_id = nil,
-				},
-			}
+			local terminals = {}
+
+			local function get_terminal(id)
+				if not terminals[id] then
+					terminals[id] = { buf = nil, win = nil, term_id = nil }
+				end
+				return terminals[id]
+			end
 
 			-- Get project root directory
 			local function get_project_root()
@@ -20,8 +21,10 @@ return {
 				return cwd
 			end
 
+			local id_to_key = { [1] = "F4", [2] = "F5", [3] = "F6" }
+
 			-- Create floating window
-			local function create_floating_window()
+			local function create_floating_window(state, id)
 				local width = math.floor(vim.o.columns * 0.85)
 				local height = math.floor(vim.o.lines * 0.85)
 				local row = math.floor((vim.o.lines - height) / 2)
@@ -29,11 +32,11 @@ return {
 
 				-- Create buffer
 				local buf = nil
-				if state.floating.buf and vim.api.nvim_buf_is_valid(state.floating.buf) then
-					buf = state.floating.buf
+				if state.buf and vim.api.nvim_buf_is_valid(state.buf) then
+					buf = state.buf
 				else
 					buf = vim.api.nvim_create_buf(false, true)
-					state.floating.buf = buf
+					state.buf = buf
 				end
 
 				-- Window options
@@ -45,11 +48,13 @@ return {
 					col = col,
 					style = "minimal",
 					border = "rounded",
+					title = " " .. id_to_key[id] .. " ",
+					title_pos = "center",
 				}
 
 				-- Create window
 				local win = vim.api.nvim_open_win(buf, true, opts)
-				state.floating.win = win
+				state.win = win
 
 				-- Set window options
 				vim.api.nvim_set_option_value("winblend", 0, { win = win })
@@ -58,38 +63,53 @@ return {
 			end
 
 			-- Check if floating window is open
-			local function is_floating_open()
-				return state.floating.win and vim.api.nvim_win_is_valid(state.floating.win)
+			local function is_floating_open(state)
+				return state.win and vim.api.nvim_win_is_valid(state.win)
+			end
+
+			-- Hide any currently visible floating terminals (keeps processes alive)
+			local function hide_all_terminals()
+				for _, state in pairs(terminals) do
+					if is_floating_open(state) then
+						vim.api.nvim_win_hide(state.win)
+						state.win = nil
+					end
+				end
 			end
 
 			-- Toggle floating terminal
-			local function toggle_terminal()
-				if is_floating_open() then
+			local function toggle_terminal(id)
+				local state = get_terminal(id)
+
+				if is_floating_open(state) then
 					-- Hide the terminal
-					vim.api.nvim_win_hide(state.floating.win)
-					state.floating.win = nil
+					vim.api.nvim_win_hide(state.win)
+					state.win = nil
 					return
 				end
 
+				-- Hide any other open terminal so views don't stack
+				hide_all_terminals()
+
 				-- Create or show terminal
-				local float = create_floating_window()
+				local float = create_floating_window(state, id)
 
 				-- If terminal doesn't exist, create it
-				if not state.floating.term_id then
+				if not state.term_id then
 					vim.api.nvim_set_current_win(float.win)
 					local project_root = get_project_root()
 					vim.fn.termopen(vim.o.shell, {
 						cwd = project_root,
 						on_exit = function()
-							state.floating.term_id = nil
-							state.floating.buf = nil
-							if state.floating.win and vim.api.nvim_win_is_valid(state.floating.win) then
-								vim.api.nvim_win_close(state.floating.win, true)
-								state.floating.win = nil
+							state.term_id = nil
+							state.buf = nil
+							if state.win and vim.api.nvim_win_is_valid(state.win) then
+								vim.api.nvim_win_close(state.win, true)
+								state.win = nil
 							end
 						end,
 					})
-					state.floating.term_id = vim.b.terminal_job_id
+					state.term_id = vim.b.terminal_job_id
 
 					-- Enter insert mode
 					vim.cmd("startinsert")
@@ -97,46 +117,60 @@ return {
 
 				-- Set local keymaps for the terminal buffer
 				local opts = { buffer = float.buf, noremap = true, silent = true }
-				vim.keymap.set("t", "<F4>", function()
-					toggle_terminal()
-				end, opts)
-				vim.keymap.set("n", "<F4>", function()
-					toggle_terminal()
-				end, opts)
+				for _, key in ipairs({ "<F4>", "<F5>", "<F6>" }) do
+					local target_id = ({ ["<F4>"] = 1, ["<F5>"] = 2, ["<F6>"] = 3 })[key]
+					vim.keymap.set("t", key, function()
+						toggle_terminal(target_id)
+					end, opts)
+					vim.keymap.set("n", key, function()
+						toggle_terminal(target_id)
+					end, opts)
+				end
 			end
 
 			-- Kill terminal and close window
-			local function kill_terminal()
-				if state.floating.term_id then
-					vim.fn.jobstop(state.floating.term_id)
-					state.floating.term_id = nil
+			local function kill_terminal(id)
+				local state = get_terminal(id)
+
+				if state.term_id then
+					vim.fn.jobstop(state.term_id)
+					state.term_id = nil
 				end
 
-				if state.floating.buf and vim.api.nvim_buf_is_valid(state.floating.buf) then
-					vim.api.nvim_buf_delete(state.floating.buf, { force = true })
-					state.floating.buf = nil
+				if state.buf and vim.api.nvim_buf_is_valid(state.buf) then
+					vim.api.nvim_buf_delete(state.buf, { force = true })
+					state.buf = nil
 				end
 
-				if is_floating_open() then
-					vim.api.nvim_win_close(state.floating.win, true)
-					state.floating.win = nil
+				if is_floating_open(state) then
+					vim.api.nvim_win_close(state.win, true)
+					state.win = nil
 				end
 			end
 
-			-- Set up keymaps
-			vim.keymap.set({ "n", "t" }, "<F4>", toggle_terminal, { noremap = true, silent = true, desc = "Toggle terminal" })
+			-- Set up keymaps: F4/F5/F6 each toggle an independent terminal
+			local term_keys = { { "<F4>", 1 }, { "<F5>", 2 }, { "<F6>", 3 } }
+			for _, spec in ipairs(term_keys) do
+				local key, id = spec[1], spec[2]
+				vim.keymap.set({ "n", "t" }, key, function()
+					toggle_terminal(id)
+				end, { noremap = true, silent = true, desc = "Toggle terminal " .. id })
+			end
+
 			vim.keymap.set(
 				{ "n", "t" },
 				"<F16>",
-				kill_terminal,
-				{ noremap = true, silent = true, desc = "Kill terminal" }
+				function() kill_terminal(1) end,
+				{ noremap = true, silent = true, desc = "Kill terminal 1" }
 			)
 
 			-- Auto command to handle window close
 			vim.api.nvim_create_autocmd("WinClosed", {
 				callback = function(ev)
-					if ev.match == tostring(state.floating.win) then
-						state.floating.win = nil
+					for _, state in pairs(terminals) do
+						if ev.match == tostring(state.win) then
+							state.win = nil
+						end
 					end
 				end,
 			})
