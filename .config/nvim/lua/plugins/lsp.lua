@@ -63,6 +63,10 @@ return {
 				--  For example, in C this would take you to the header.
 				map("gD", vim.lsp.buf.declaration, "[G]oto [D]eclaration")
 
+				-- Show diagnostics in a floating window
+				map("gl", vim.diagnostic.open_float, "Show [L]ine Diagnostics")
+				map("<leader>e", vim.diagnostic.open_float, "Show [E]rror Diagnostics")
+
 				-- The following two autocommands are used to highlight references of the
 				-- word under your cursor when your cursor rests there for a little while.
 				--    See `:help CursorHold` for information about when this is executed
@@ -133,7 +137,9 @@ return {
 				},
 				filetypes = {
 					"javascript",
+					"javascriptreact",
 					"typescript",
+					"typescriptreact",
 					"vue",
 				},
 			},
@@ -163,6 +169,7 @@ return {
 					},
 				},
 			},
+			marksman = {},
 		}
 
 		-- Ensure the servers and tools above are installed
@@ -182,5 +189,44 @@ return {
 			vim.lsp.config(server, cfg)
 			vim.lsp.enable(server)
 		end
+
+		vim.diagnostic.config({
+			-- Disable inline errors (use floating window instead)
+			virtual_text = false,
+			-- Show signs in the gutter (left side)
+			signs = true,
+			-- Underline the error
+			underline = true,
+			-- Update diagnostics while typing? (False is usually better for performance)
+			update_in_insert = false,
+			-- Sort by severity (Error > Warning > Info)
+			severity_sort = true,
+			-- Customize floating window appearance
+			float = {
+				border = "rounded",
+				source = "always",
+				header = "",
+				prefix = "",
+			},
+		})
+
+		-- 3. OPTIONAL: Change the gutter icons
+		local signs = { Error = "✘", Warn = "▲", Hint = "⚑", Info = "»" }
+		for type, icon in pairs(signs) do
+			local hl = "DiagnosticSign" .. type
+			vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = hl })
+		end
+
+		local diagnostics_active = true
+		vim.keymap.set("n", "<leader>td", function()
+			diagnostics_active = not diagnostics_active
+			if diagnostics_active then
+				vim.diagnostic.enable()
+				print("Diagnostics: ON")
+			else
+				vim.diagnostic.enable(false)
+				print("Diagnostics: OFF")
+			end
+		end, { desc = "Toggle Diagnostics" })
 	end,
 }
