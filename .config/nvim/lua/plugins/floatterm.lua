@@ -11,6 +11,46 @@ return {
 				return terminals[id]
 			end
 
+			-- Read Windows clipboard text via win32yank (text-only by design,
+			-- so it returns empty for image clipboards instead of binary garbage
+			-- the way xclip/getreg can on WSLg).
+			local function get_clipboard_text()
+				local out = vim.fn.system({ "win32yank.exe", "-o", "--lf" })
+				if vim.v.shell_error ~= 0 or not out or #out == 0 then
+					return nil
+				end
+				if out:find("\0") then
+					return nil
+				end
+				return out
+			end
+
+			-- If the Windows clipboard holds an image, save it to a temp PNG and
+			-- return its WSL path. Returns nil otherwise.
+			local function get_clipboard_image_path()
+				local script = "Add-Type -AssemblyName System.Windows.Forms; "
+					.. "$img = [Windows.Forms.Clipboard]::GetImage(); "
+					.. "if ($img) { "
+					.. "  $p = Join-Path $env:TEMP ('claude-paste-' + (Get-Date -Format 'yyyyMMddHHmmssfff') + '.png'); "
+					.. "  $img.Save($p); "
+					.. "  Write-Output $p "
+					.. "}"
+				local out = vim.fn.systemlist({ "powershell.exe", "-NoProfile", "-Command", script })
+				if vim.v.shell_error ~= 0 then
+					return nil
+				end
+				for _, line in ipairs(out) do
+					line = line:gsub("[\r\n]+$", ""):gsub("^%s+", ""):gsub("%s+$", "")
+					if line ~= "" then
+						local wsl = vim.fn.systemlist({ "wslpath", "-u", line })[1]
+						if wsl and wsl ~= "" then
+							return (wsl:gsub("[\r\n]+$", ""))
+						end
+					end
+				end
+				return nil
+			end
+
 			-- Get project root directory
 			local function get_project_root()
 				local cwd = vim.fn.getcwd()
@@ -116,16 +156,44 @@ return {
 				end
 
 				-- Set local keymaps for the terminal buffer
-				local opts = { buffer = float.buf, noremap = true, silent = true }
 				for _, key in ipairs({ "<F4>", "<F5>", "<F6>" }) do
 					local target_id = ({ ["<F4>"] = 1, ["<F5>"] = 2, ["<F6>"] = 3 })[key]
+					local kopts = {
+						buffer = float.buf,
+						noremap = true,
+						silent = true,
+						desc = "Toggle terminal " .. target_id,
+					}
 					vim.keymap.set("t", key, function()
 						toggle_terminal(target_id)
-					end, opts)
+					end, kopts)
 					vim.keymap.set("n", key, function()
 						toggle_terminal(target_id)
-					end, opts)
+					end, kopts)
 				end
+
+				-- Paste from + register straight to PTY, bypassing nvim's typeahead
+				-- buffer (which truncates large pastes via Ctrl+Shift+V).
+				-- Falls back to a saved-PNG path if the clipboard holds an image.
+				vim.keymap.set("t", "<C-v>", function()
+					if not state.term_id then
+						return
+					end
+					local clip = get_clipboard_text()
+					if clip then
+						vim.api.nvim_chan_send(state.term_id, clip)
+						return
+					end
+					local img = get_clipboard_image_path()
+					if img then
+						vim.api.nvim_chan_send(state.term_id, img)
+					end
+				end, {
+					buffer = float.buf,
+					noremap = true,
+					silent = true,
+					desc = "Paste clipboard (text or image) into terminal",
+				})
 			end
 
 			-- Kill terminal and close window
