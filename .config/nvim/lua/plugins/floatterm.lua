@@ -11,62 +11,6 @@ return {
 				return terminals[id]
 			end
 
-			-- Read X11 clipboard text via xclip. Returns nil if the clipboard is
-			-- empty, holds non-text data, or xclip is unavailable.
-			local function get_clipboard_text()
-				local targets = vim.fn.systemlist({ "xclip", "-selection", "clipboard", "-t", "TARGETS", "-o" })
-				if vim.v.shell_error ~= 0 then
-					return nil
-				end
-				local has_text = false
-				for _, t in ipairs(targets) do
-					if t == "UTF8_STRING" or t == "text/plain" or t == "text/plain;charset=utf-8" or t == "STRING" then
-						has_text = true
-						break
-					end
-				end
-				if not has_text then
-					return nil
-				end
-				local out = vim.fn.system({ "xclip", "-selection", "clipboard", "-o" })
-				if vim.v.shell_error ~= 0 or not out or #out == 0 then
-					return nil
-				end
-				if out:find("\0") then
-					return nil
-				end
-				return out
-			end
-
-			-- If the clipboard holds an image, save it to a temp PNG and
-			-- return its path. Returns nil otherwise.
-			local function get_clipboard_image_path()
-				local targets = vim.fn.systemlist({ "xclip", "-selection", "clipboard", "-t", "TARGETS", "-o" })
-				if vim.v.shell_error ~= 0 then
-					return nil
-				end
-				local has_png = false
-				for _, t in ipairs(targets) do
-					if t == "image/png" then
-						has_png = true
-						break
-					end
-				end
-				if not has_png then
-					return nil
-				end
-				local path = vim.fn.tempname() .. ".png"
-				local cmd = string.format(
-					"xclip -selection clipboard -t image/png -o > %s",
-					vim.fn.shellescape(path)
-				)
-				vim.fn.system(cmd)
-				if vim.v.shell_error ~= 0 then
-					return nil
-				end
-				return path
-			end
-
 			-- Get project root directory
 			local function get_project_root()
 				local cwd = vim.fn.getcwd()
@@ -187,29 +131,6 @@ return {
 						toggle_terminal(target_id)
 					end, kopts)
 				end
-
-				-- Paste from clipboard straight to PTY, bypassing nvim's typeahead
-				-- buffer (which can truncate large pastes via Ctrl+Shift+V).
-				-- Falls back to a saved-PNG path if the clipboard holds an image.
-				vim.keymap.set("t", "<C-v>", function()
-					if not state.term_id then
-						return
-					end
-					local clip = get_clipboard_text()
-					if clip then
-						vim.api.nvim_chan_send(state.term_id, clip)
-						return
-					end
-					local img = get_clipboard_image_path()
-					if img then
-						vim.api.nvim_chan_send(state.term_id, img)
-					end
-				end, {
-					buffer = float.buf,
-					noremap = true,
-					silent = true,
-					desc = "Paste clipboard (text or image) into terminal",
-				})
 			end
 
 			-- Kill terminal and close window
