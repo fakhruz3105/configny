@@ -1,6 +1,15 @@
 require("core.keymaps")
 require("core.options")
 
+-- Shim deprecated vim.tbl_flatten (removed in nvim 0.13) so older plugin
+-- versions (neo-tree, lualine, autopairs, treesitter) don't spam warnings.
+if vim.iter then
+	---@diagnostic disable-next-line: duplicate-set-field
+	vim.tbl_flatten = function(t)
+		return vim.iter(t):flatten(math.huge):totable()
+	end
+end
+
 -- Lazyvim plugin
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
@@ -15,17 +24,5 @@ local rtp = vim.opt.rtp
 rtp:prepend(lazypath)
 
 require("lazy").setup({
-	require("plugins.neotree"),
-	require("plugins.telescope"),
-	require("plugins.colortheme"),
-	require("plugins.completion"),
-	require("plugins.lsp"),
-	require("plugins.lualine"),
-	require("plugins.treesitter"),
-	require("plugins.conform"),
-	require("plugins.gitsigns"),
-	require("plugins.indent-blankline"),
-	require("plugins.misc"),
-	require("plugins.alpha"),
-	require("plugins.floatterm"),
+	{ import = "plugins" },
 })
