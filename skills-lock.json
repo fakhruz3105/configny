@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "neovim": {
+      "source": "julianobarbosa/claude-code-skills",
+      "sourceType": "github",
+      "skillPath": "skills/neovim/SKILL.md",
+      "computedHash": "65c7637d1b84037629011e8a6950296eebd61c76ec916af90660699d8aab756e"
+    },
+    "tmux": {
+      "source": "steipete/clawdis",
+      "sourceType": "github",
+      "skillPath": "skills/tmux/SKILL.md",
+      "computedHash": "d9c56ff5d25a0a8217eaedfb64b46c05dd20a2c0e0edae75f059ecb1d8833c08"
+    },
+    "vim-neovim": {
+      "source": "absolutelyskilled/absolutelyskilled",
+      "sourceType": "github",
+      "skillPath": "skills/vim-neovim/SKILL.md",
+      "computedHash": "3add706fe51017c36b2d2fce38139b0ec789225d804d625a5dbbed476f3de41c"
+    }
+  }
+}
