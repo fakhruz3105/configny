@@ -10,6 +10,17 @@ local function with_desc(desc)
 	return vim.tbl_extend("force", opts, { desc = desc })
 end
 
+-- Clear search highlight
+vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>", opts)
+
+-- Diagnostic navigation
+vim.keymap.set("n", "]d", function()
+	vim.diagnostic.jump({ count = 1, float = true })
+end, with_desc("Next diagnostic"))
+vim.keymap.set("n", "[d", function()
+	vim.diagnostic.jump({ count = -1, float = true })
+end, with_desc("Previous diagnostic"))
+
 -- Keymaps set here
 vim.keymap.set("n", "<leader>s", "<cmd> w <CR>", with_desc("Save file"))
 vim.keymap.set("n", "<leader>q", "<cmd> q <CR>", with_desc("Quit window"))

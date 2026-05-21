@@ -262,8 +262,7 @@ declare -A OMZ_CUSTOM=(
 
 # Custom scripts with specific destinations
 declare -A CUSTOM_SCRIPTS=(
-    ["scripts/tmux-session"]="$HOME/.local/bin/tmux-session"
-    # Add more custom scripts here
+    # Add custom scripts here, e.g. ["scripts/foo"]="$HOME/.local/bin/foo"
 )
 
 #===============================================================================
@@ -680,16 +679,49 @@ install_custom_scripts() {
         mkdir -p "$HOME/.local/bin"
     fi
     
+    if [[ ${#CUSTOM_SCRIPTS[@]} -eq 0 ]]; then
+        log_info "No custom scripts to install"
+    fi
     for source in "${!CUSTOM_SCRIPTS[@]}"; do
         local full_source="$DOTFILES_DIR/$source"
         local dest="${CUSTOM_SCRIPTS[$source]}"
         create_symlink "$full_source" "$dest"
-        
+
         # Make script executable
         if [[ -L "$dest" && -f "$full_source" ]]; then
             chmod +x "$full_source"
         fi
     done
+    echo
+}
+
+install_tmux_plugins() {
+    log_info "Setting up tmux plugins (TPM)..."
+    echo
+
+    if ! command -v tmux &> /dev/null; then
+        log_warning "tmux not found; skipping plugin setup"
+        echo
+        return 0
+    fi
+
+    local tpm_dir="$HOME/.tmux/plugins/tpm"
+    if [[ -d "$tpm_dir/.git" ]]; then
+        log_success "TPM already installed: $tpm_dir"
+    else
+        log_info "Cloning TPM into $tpm_dir"
+        git clone --depth 1 https://github.com/tmux-plugins/tpm "$tpm_dir"
+        log_success "TPM installed"
+    fi
+
+    # Install the plugins declared in ~/.tmux.conf without an interactive session
+    if [[ -x "$tpm_dir/bin/install_plugins" ]]; then
+        log_info "Installing tmux plugins (resurrect, continuum)..."
+        "$tpm_dir/bin/install_plugins" || \
+            log_warning "Automatic plugin install failed; run 'prefix + I' inside tmux"
+    else
+        log_warning "TPM installer not found; run 'prefix + I' inside tmux to install plugins"
+    fi
     echo
 }
 
@@ -719,7 +751,9 @@ uninstall() {
     # Collect all destinations
     for dest in "${DOTFILES[@]}"; do all_links+=("$dest"); done
     for dest in "${CONFIG_DIRS[@]}"; do all_links+=("$dest"); done
-    for dest in "${CUSTOM_SCRIPTS[@]}"; do all_links+=("$dest"); done
+    if [[ ${#CUSTOM_SCRIPTS[@]} -gt 0 ]]; then
+        for dest in "${CUSTOM_SCRIPTS[@]}"; do all_links+=("$dest"); done
+    fi
     
     for dest in "${all_links[@]}"; do
         if [[ -L "$dest" ]]; then
@@ -805,6 +839,7 @@ main() {
             install_config_dirs
             install_omz_custom
             install_custom_scripts
+            install_tmux_plugins
             check_path
 
             log_success "Installation complete!"

@@ -17,6 +17,16 @@ vim.opt.splitbelow = true
 vim.opt.cursorline = true
 vim.opt.updatetime = 250
 vim.opt.timeoutlen = 400
+vim.opt.mouse = "a"
+vim.opt.wrap = false
+vim.opt.linebreak = true
+vim.opt.breakindent = true
+vim.opt.confirm = true
+vim.opt.swapfile = false
+vim.opt.inccommand = "split"
+vim.opt.signcolumn = "yes:1"
+vim.opt.list = true
+vim.opt.listchars = { tab = "» ", trail = "·", nbsp = "␣" }
 
 vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter", "CursorHold", "CursorHoldI" }, {
 	command = "if mode() != 'c' | checktime | endif",

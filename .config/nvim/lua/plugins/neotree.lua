@@ -19,5 +19,5 @@ return {
 			},
 		},
 	},
-	lazy = false,
+	cmd = "Neotree",
 }
