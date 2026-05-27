@@ -26,6 +26,7 @@ vim.keymap.set("n", "<leader>s", "<cmd> w <CR>", with_desc("Save file"))
 vim.keymap.set("n", "<leader>q", "<cmd> q <CR>", with_desc("Quit window"))
 vim.keymap.set("n", "<leader>bp", ":bprevious<CR>", with_desc("Previous buffer"))
 vim.keymap.set("n", "<leader>bn", ":bnext<CR>", with_desc("Next buffer"))
+vim.keymap.set("n", "<leader>tw", "<cmd>set wrap!<CR>", with_desc("Toggle line wrap"))
 
 -- Telescope keymaps
 vim.keymap.set("n", "<leader>f", ":Telescope current_buffer_fuzzy_find <CR>", with_desc("Fuzzy find in current buffer"))
