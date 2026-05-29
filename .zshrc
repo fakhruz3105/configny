@@ -151,7 +151,7 @@ export PATH="/home/razi/.claude-code-templates/bin:$PATH"
 
 eval "$(atuin init zsh)"
 
-[[ -s "$HOME/.gvm/scripts/gvm" ]] && source "$HOME/.gvm/scripts/gvm"
+[[ -s "$HOME/.gvm/scripts/gvm" ]] && source "$HOME/.gvm/scripts/gvm" >/dev/null 2>&1
 
 unset -f cd __gvm_oldcd 2>/dev/null
 
