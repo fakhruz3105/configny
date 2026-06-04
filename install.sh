@@ -251,6 +251,7 @@ declare -A CONFIG_DIRS=(
     [".config/nvim"]="$HOME/.config/nvim"
     [".config/starship.toml"]="$HOME/.config/starship.toml"
     [".config/tmux"]="$HOME/.config/tmux"
+    [".config/i3"]="$HOME/.config/i3"
     # Add more as needed
 )
 
