@@ -252,6 +252,7 @@ declare -A CONFIG_DIRS=(
     [".config/starship.toml"]="$HOME/.config/starship.toml"
     [".config/tmux"]="$HOME/.config/tmux"
     [".config/i3"]="$HOME/.config/i3"
+    [".config/alacritty"]="$HOME/.config/alacritty"
     # Add more as needed
 )
 
@@ -444,6 +445,35 @@ install_ripgrep() {
         log_info "Installing ripgrep..."
         pkg_install ripgrep
         log_success "ripgrep installed: $(rg --version | head -1)"
+    fi
+    echo
+}
+
+install_alacritty() {
+    log_info "Checking Alacritty installation..."
+    echo
+
+    if command -v alacritty &> /dev/null; then
+        log_success "Alacritty is already installed: $(alacritty --version)"
+        echo
+        return 0
+    fi
+
+    log_info "Installing Alacritty via $PKG_MANAGER..."
+    pkg_install alacritty
+
+    # Some distros don't package Alacritty; fall back to cargo (needs Rust).
+    if ! command -v alacritty &> /dev/null; then
+        if command -v cargo &> /dev/null; then
+            log_warning "Package install failed; building Alacritty via cargo..."
+            cargo install alacritty
+        else
+            log_error "Could not install Alacritty automatically; install it manually."
+        fi
+    fi
+
+    if command -v alacritty &> /dev/null; then
+        log_success "Alacritty installed: $(alacritty --version)"
     fi
     echo
 }
@@ -831,6 +861,7 @@ main() {
             install_ripgrep
             install_neovim
             install_rust
+            install_alacritty
             install_atuin
             install_zsh
             install_oh_my_zsh
