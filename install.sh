@@ -295,6 +295,7 @@ declare -A CONFIG_DIRS=(
     [".config/starship.toml"]="$HOME/.config/starship.toml"
     [".config/tmux"]="$HOME/.config/tmux"
     [".config/i3"]="$HOME/.config/i3"
+    [".config/aerospace"]="$HOME/.config/aerospace"
     [".config/alacritty"]="$HOME/.config/alacritty"
     # Add more as needed
 )
@@ -525,6 +526,25 @@ install_alacritty() {
     echo
 }
 
+# AeroSpace: i3-like tiling window manager for macOS (config mirrors .config/i3)
+install_aerospace() {
+    if [[ "$PKG_MANAGER" != "brew" ]]; then
+        return 0
+    fi
+
+    log_info "Checking AeroSpace installation..."
+    echo
+
+    if command -v aerospace &> /dev/null || [[ -d "/Applications/AeroSpace.app" ]]; then
+        log_success "AeroSpace is already installed"
+    else
+        log_info "Installing AeroSpace via Homebrew cask..."
+        brew install --cask nikitabobko/tap/aerospace
+        log_success "AeroSpace installed (grant Accessibility permission on first launch)"
+    fi
+    echo
+}
+
 install_atuin() {
     log_info "Checking Atuin installation..."
     echo
@@ -718,9 +738,14 @@ install_config_dirs() {
     echo
 
     for source in "${!CONFIG_DIRS[@]}"; do
-        # i3 is X11-only; skip it on macOS (use AeroSpace/yabai instead)
+        # i3 is X11-only; skip it on macOS (AeroSpace replaces it there)
         if [[ "$(uname -s)" == "Darwin" && "$source" == ".config/i3" ]]; then
             log_info "Skipping $source (i3 is Linux/X11-only)"
+            continue
+        fi
+        # AeroSpace is macOS-only; skip it on Linux
+        if [[ "$(uname -s)" != "Darwin" && "$source" == ".config/aerospace" ]]; then
+            log_info "Skipping $source (AeroSpace is macOS-only)"
             continue
         fi
         local full_source="$DOTFILES_DIR/$source"
@@ -924,6 +949,7 @@ main() {
             install_neovim
             install_rust
             install_alacritty
+            install_aerospace
             install_atuin
             install_zsh
             install_oh_my_zsh
