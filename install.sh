@@ -7,6 +7,14 @@
 
 set -euo pipefail
 
+# macOS ships bash 3.2, which lacks the associative arrays (declare -A) this
+# script relies on. Bail out early with instructions instead of a cryptic error.
+if [[ "${BASH_VERSINFO[0]}" -lt 4 ]]; then
+    echo "ERROR: bash >= 4 required (found $BASH_VERSION)."
+    echo "On macOS run:  brew install bash  then re-run with:  /opt/homebrew/bin/bash $0"
+    exit 1
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -21,7 +29,11 @@ DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -n "${SUDO_USER:-}" ]]; then
     # Running with sudo - get the actual user's home directory
     REAL_USER="$SUDO_USER"
-    REAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        REAL_HOME=$(dscl . -read "/Users/$SUDO_USER" NFSHomeDirectory | awk '{print $2}')
+    else
+        REAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    fi
 else
     # Not running with sudo - use USER if set, otherwise get from whoami
     REAL_USER="${USER:-$(whoami)}"
@@ -44,6 +56,17 @@ fi
 #===============================================================================
 
 detect_distro() {
+    # macOS: use Homebrew (bootstrap it if missing)
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        DISTRO_ID="macos"
+        DISTRO_NAME="macOS"
+        DISTRO_VERSION="$(sw_vers -productVersion 2>/dev/null || echo '')"
+        DISTRO_ID_LIKE=""
+        PKG_MANAGER="brew"
+        PKG_INSTALL="brew install"
+        return
+    fi
+
     if [[ -f /etc/os-release ]]; then
         . /etc/os-release
         DISTRO_ID="${ID:-unknown}"
@@ -204,14 +227,34 @@ pkg_install() {
     local package="$1"
     local pkg_name
     pkg_name="$(get_package_name "$package")"
-    
+
     if [[ "$PKG_MANAGER" == "unknown" ]]; then
         log_error "Unknown package manager. Please install '$package' manually."
         return 1
     fi
-    
+
     log_info "Installing $pkg_name using $PKG_MANAGER..."
     eval "$PKG_INSTALL $pkg_name"
+}
+
+# Bootstrap Homebrew on macOS if it isn't installed yet
+install_homebrew() {
+    if [[ "$PKG_MANAGER" != "brew" ]]; then
+        return 0
+    fi
+
+    if command -v brew &> /dev/null; then
+        log_success "Homebrew is already installed: $(brew --version | head -1)"
+    else
+        log_info "Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    fi
+
+    # Apple Silicon installs to /opt/homebrew, which is not on PATH by default
+    if [[ -x /opt/homebrew/bin/brew ]]; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    fi
+    echo
 }
 
 show_distro_info() {
@@ -460,7 +503,11 @@ install_alacritty() {
     fi
 
     log_info "Installing Alacritty via $PKG_MANAGER..."
-    pkg_install alacritty
+    if [[ "$PKG_MANAGER" == "brew" ]]; then
+        brew install --cask alacritty
+    else
+        pkg_install alacritty
+    fi
 
     # Some distros don't package Alacritty; fall back to cargo (needs Rust).
     if ! command -v alacritty &> /dev/null; then
@@ -508,7 +555,15 @@ install_neovim() {
         log_success "Neovim is already installed: $(nvim --version | head -1)"
         return 0
     fi
-    
+
+    # macOS: install prebuilt via Homebrew instead of building from source
+    if [[ "$PKG_MANAGER" == "brew" ]]; then
+        pkg_install neovim
+        log_success "Neovim installed: $(nvim --version | head -1)"
+        echo
+        return 0
+    fi
+
     log_info "Building Neovim from source..."
     
     # Install build dependencies
@@ -661,8 +716,13 @@ install_dotfiles() {
 install_config_dirs() {
     log_info "Installing config directories..."
     echo
-    
+
     for source in "${!CONFIG_DIRS[@]}"; do
+        # i3 is X11-only; skip it on macOS (use AeroSpace/yabai instead)
+        if [[ "$(uname -s)" == "Darwin" && "$source" == ".config/i3" ]]; then
+            log_info "Skipping $source (i3 is Linux/X11-only)"
+            continue
+        fi
         local full_source="$DOTFILES_DIR/$source"
         local dest="${CONFIG_DIRS[$source]}"
         create_symlink "$full_source" "$dest"
@@ -815,7 +875,8 @@ Commands:
     uninstall   Remove all symlinks created by this script
     help        Show this help message
 
-Supported Distros:
+Supported Systems:
+    - macOS / Apple Silicon (Homebrew; needs bash >= 4: brew install bash)
     - Debian/Ubuntu (apt)
     - Fedora (dnf)
     - RHEL/CentOS/Rocky/Alma (dnf/yum)
@@ -857,6 +918,7 @@ main() {
     case "$command" in
         install)
             show_distro_info
+            install_homebrew
             install_dependencies
             install_ripgrep
             install_neovim

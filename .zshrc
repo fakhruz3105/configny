@@ -114,27 +114,39 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
-export DVM_DIR="/home/razi/.dvm"
+# Homebrew (macOS — Apple Silicon)
+if [[ "$OSTYPE" == darwin* && -x /opt/homebrew/bin/brew ]]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
+export DVM_DIR="$HOME/.dvm"
 export PATH="$DVM_DIR/bin:$PATH"
 
-eval "$(zoxide init zsh)"
+command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
 alias z='zi'
 
 export EDITOR=nvim
 alias v='nvim'
 
 # pnpm
-export PNPM_HOME="/home/razi/.local/share/pnpm"
+if [[ "$OSTYPE" == darwin* ]]; then
+  export PNPM_HOME="$HOME/Library/pnpm"
+else
+  export PNPM_HOME="$HOME/.local/share/pnpm"
+fi
 case ":$PATH:" in
   *":$PNPM_HOME:"*) ;;
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 # pnpm end
 
-alias open="thunar"
+# macOS has a native `open`; only alias it to a file manager on Linux
+if [[ "$OSTYPE" != darwin* ]]; then
+  alias open="thunar"
+fi
 
 # bun completions
-[ -s "/home/razi/.bun/_bun" ] && source "/home/razi/.bun/_bun"
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
 # bun
 export BUN_INSTALL="$HOME/.bun"
@@ -144,18 +156,18 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 export PATH="$HOME/.cargo/bin:$PATH"
 
 # Claude Code Templates - Global Agents
-export PATH="/home/razi/.claude-code-templates/bin:$PATH"
+export PATH="$HOME/.claude-code-templates/bin:$PATH"
 
 
-. "$HOME/.atuin/bin/env"
+[ -f "$HOME/.atuin/bin/env" ] && . "$HOME/.atuin/bin/env"
 
-eval "$(atuin init zsh)"
+command -v atuin >/dev/null && eval "$(atuin init zsh)"
 
 [[ -s "$HOME/.gvm/scripts/gvm" ]] && source "$HOME/.gvm/scripts/gvm" >/dev/null 2>&1
 
 unset -f cd __gvm_oldcd 2>/dev/null
 
-alias txs='/home/razi/.local/bin/tmux-session'
+alias txs="$HOME/.local/bin/tmux-session"
 
 export PATH=$HOME/go/bin:$PATH
 export PATH="$HOME/.local/bin:$PATH"
