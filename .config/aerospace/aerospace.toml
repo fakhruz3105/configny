@@ -8,6 +8,9 @@
 
 start-at-login = true
 
+# No peek strips in accordion (stacking) layout — each window looks fullscreen
+accordion-padding = 0
+
 # i3 does manual splits (mod+h / mod+v); AeroSpace's split command only works
 # with flat-container normalization disabled.
 enable-normalization-flat-containers = false
