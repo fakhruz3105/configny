@@ -585,6 +585,21 @@ install_aerospace() {
     echo
 }
 
+# zoxide: smarter cd — .zshrc aliases z='zi' and runs zoxide init
+install_zoxide() {
+    log_info "Checking zoxide installation..."
+    echo
+
+    if command -v zoxide &> /dev/null; then
+        log_success "zoxide is already installed: $(zoxide --version)"
+    else
+        log_info "Installing zoxide..."
+        pkg_install zoxide
+        log_success "zoxide installed"
+    fi
+    echo
+}
+
 install_atuin() {
     log_info "Checking Atuin installation..."
     echo
@@ -992,6 +1007,7 @@ main() {
             install_ghostty
             install_aerospace
             install_maccy
+            install_zoxide
             install_atuin
             install_zsh
             install_oh_my_zsh
