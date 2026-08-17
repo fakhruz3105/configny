@@ -547,6 +547,25 @@ install_ghostty() {
     echo
 }
 
+# Maccy: clipboard manager on macOS (CopyQ equivalent; hotkey is set in-app)
+install_maccy() {
+    if [[ "$PKG_MANAGER" != "brew" ]]; then
+        return 0
+    fi
+
+    log_info "Checking Maccy installation..."
+    echo
+
+    if [[ -d "/Applications/Maccy.app" ]]; then
+        log_success "Maccy is already installed"
+    else
+        log_info "Installing Maccy via Homebrew cask..."
+        brew install --cask maccy
+        log_success "Maccy installed (launch it once and set your popup hotkey)"
+    fi
+    echo
+}
+
 # AeroSpace: i3-like tiling window manager for macOS (config mirrors .config/i3)
 install_aerospace() {
     if [[ "$PKG_MANAGER" != "brew" ]]; then
@@ -972,6 +991,7 @@ main() {
             install_alacritty
             install_ghostty
             install_aerospace
+            install_maccy
             install_atuin
             install_zsh
             install_oh_my_zsh
