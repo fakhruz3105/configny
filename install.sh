@@ -297,6 +297,7 @@ declare -A CONFIG_DIRS=(
     [".config/i3"]="$HOME/.config/i3"
     [".config/aerospace"]="$HOME/.config/aerospace"
     [".config/alacritty"]="$HOME/.config/alacritty"
+    [".config/ghostty"]="$HOME/.config/ghostty"
     # Add more as needed
 )
 
@@ -494,6 +495,11 @@ install_ripgrep() {
 }
 
 install_alacritty() {
+    # macOS uses Ghostty instead (Alacritty is unnotarized; Gatekeeper blocks it)
+    if [[ "$PKG_MANAGER" == "brew" ]]; then
+        return 0
+    fi
+
     log_info "Checking Alacritty installation..."
     echo
 
@@ -504,11 +510,7 @@ install_alacritty() {
     fi
 
     log_info "Installing Alacritty via $PKG_MANAGER..."
-    if [[ "$PKG_MANAGER" == "brew" ]]; then
-        brew install --cask alacritty
-    else
-        pkg_install alacritty
-    fi
+    pkg_install alacritty
 
     # Some distros don't package Alacritty; fall back to cargo (needs Rust).
     if ! command -v alacritty &> /dev/null; then
@@ -522,6 +524,25 @@ install_alacritty() {
 
     if command -v alacritty &> /dev/null; then
         log_success "Alacritty installed: $(alacritty --version)"
+    fi
+    echo
+}
+
+# Ghostty: terminal of choice on macOS (signed + notarized, unlike Alacritty)
+install_ghostty() {
+    if [[ "$PKG_MANAGER" != "brew" ]]; then
+        return 0
+    fi
+
+    log_info "Checking Ghostty installation..."
+    echo
+
+    if [[ -d "/Applications/Ghostty.app" ]] || command -v ghostty &> /dev/null; then
+        log_success "Ghostty is already installed"
+    else
+        log_info "Installing Ghostty via Homebrew cask..."
+        brew install --cask ghostty
+        log_success "Ghostty installed"
     fi
     echo
 }
@@ -949,6 +970,7 @@ main() {
             install_neovim
             install_rust
             install_alacritty
+            install_ghostty
             install_aerospace
             install_atuin
             install_zsh

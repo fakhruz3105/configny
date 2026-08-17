@@ -17,8 +17,9 @@ enable-normalization-opposite-orientation-for-nested-containers = false
 
 [mode.main.binding]
 
-# start a terminal ($mod+Return → alacritty)
-alt-enter = 'exec-and-forget open -na Alacritty'
+# start a terminal ($mod+Return; Ghostty on macOS — Alacritty is unnotarized
+# and Gatekeeper blocks it)
+alt-enter = 'exec-and-forget open -na Ghostty'
 
 # kill focused window ($mod+Shift+q)
 alt-shift-q = 'close'

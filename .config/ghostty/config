@@ -1,0 +1,7 @@
+# Ghostty config — mirrors .config/alacritty/alacritty.toml
+font-size = 14
+
+# Make the left Option key act as Alt inside the terminal (readline/nvim meta
+# key). AeroSpace grabs its own alt-bindings globally before Ghostty sees them,
+# so this only affects combos AeroSpace doesn't bind.
+macos-option-as-alt = true
