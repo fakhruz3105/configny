@@ -600,6 +600,21 @@ install_zoxide() {
     echo
 }
 
+# fzf: fuzzy finder — required by zoxide's zi interactive picker
+install_fzf() {
+    log_info "Checking fzf installation..."
+    echo
+
+    if command -v fzf &> /dev/null; then
+        log_success "fzf is already installed: $(fzf --version)"
+    else
+        log_info "Installing fzf..."
+        pkg_install fzf
+        log_success "fzf installed"
+    fi
+    echo
+}
+
 install_atuin() {
     log_info "Checking Atuin installation..."
     echo
@@ -1008,6 +1023,7 @@ main() {
             install_aerospace
             install_maccy
             install_zoxide
+            install_fzf
             install_atuin
             install_zsh
             install_oh_my_zsh
