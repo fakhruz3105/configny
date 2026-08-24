@@ -1,3 +1,5 @@
 [user]
 	name = Razi Mutussin
 	email = razi.mutussin@fusang.co
+[url "git@bitbucket.org:"]
+	insteadOf = https://bitbucket.org/
