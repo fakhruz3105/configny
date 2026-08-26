@@ -10,6 +10,23 @@ local function with_desc(desc)
 	return vim.tbl_extend("force", opts, { desc = desc })
 end
 
+-- Cursor motion on jkl; instead of hjkl, matching the i3/AeroSpace layout
+-- (j=left, k=down, l=up, ;=right). Mapped non-recursively, so every right-hand
+-- side is the builtin motion rather than another mapping, and applied in
+-- normal + visual + operator-pending so counts and operators (3k, d;, cl) work.
+-- Pane navigation uses the same layout on <C-j/k/l/;> (see plugins/tmux-navigator.lua).
+for _, m in ipairs({
+	{ "j", "h", "Move left" },
+	{ "k", "j", "Move down" },
+	{ "l", "k", "Move up" },
+	{ ";", "l", "Move right" },
+}) do
+	vim.keymap.set({ "n", "x", "o" }, m[1], m[2], with_desc(m[3]))
+end
+
+-- ';' used to repeat the last f/t search; h is now free, so it lands there.
+vim.keymap.set({ "n", "x", "o" }, "h", ";", with_desc("Repeat last f/t"))
+
 -- Clear search highlight
 vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>", opts)
 
