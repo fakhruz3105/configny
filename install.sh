@@ -22,6 +22,9 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# nvm release to install (see https://github.com/nvm-sh/nvm/releases)
+NVM_VERSION="v0.40.6"
+
 # Get the directory where this script is located (the dotfiles repo)
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -191,6 +194,45 @@ get_package_name() {
                 zypper) echo "ripgrep" ;;
                 apk) echo "ripgrep" ;;
                 *) echo "ripgrep" ;;
+            esac
+            ;;
+        go)
+            case "$PKG_MANAGER" in
+                apt) echo "golang-go" ;;
+                dnf|yum) echo "golang" ;;
+                pacman) echo "go" ;;
+                zypper) echo "go" ;;
+                apk) echo "go" ;;
+                xbps) echo "go" ;;
+                emerge) echo "dev-lang/go" ;;
+                nix-env) echo "go" ;;
+                *) echo "go" ;;
+            esac
+            ;;
+        docker)
+            case "$PKG_MANAGER" in
+                apt) echo "docker.io" ;;
+                dnf|yum) echo "moby-engine" ;;
+                pacman) echo "docker" ;;
+                zypper) echo "docker" ;;
+                apk) echo "docker" ;;
+                xbps) echo "docker" ;;
+                emerge) echo "app-containers/docker" ;;
+                nix-env) echo "docker" ;;
+                *) echo "docker" ;;
+            esac
+            ;;
+        docker-compose)
+            case "$PKG_MANAGER" in
+                apt) echo "docker-compose-v2" ;;
+                dnf|yum) echo "docker-compose" ;;
+                pacman) echo "docker-compose" ;;
+                zypper) echo "docker-compose" ;;
+                apk) echo "docker-cli-compose" ;;
+                xbps) echo "docker-compose" ;;
+                emerge) echo "app-containers/docker-compose" ;;
+                nix-env) echo "docker-compose" ;;
+                *) echo "docker-compose" ;;
             esac
             ;;
         *)
@@ -618,6 +660,130 @@ install_fzf() {
     echo
 }
 
+# Go toolchain: package-managed so upgrades ride along with the system
+install_go() {
+    log_info "Checking Go installation..."
+    echo
+
+    if command -v go &> /dev/null; then
+        log_success "Go is already installed: $(go version)"
+    else
+        log_info "Installing Go..."
+        pkg_install go
+        log_success "Go installed"
+        log_info "GOPATH defaults to ~/go; binaries land in ~/go/bin"
+    fi
+    echo
+}
+
+# nvm: Node version manager. .zshrc already sources $NVM_DIR/nvm.sh, and .zshrc
+# is a symlink into this repo, so PROFILE=/dev/null keeps the upstream installer
+# from appending a duplicate init block to it.
+install_nvm() {
+    log_info "Checking nvm installation..."
+    echo
+
+    if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
+        log_success "nvm is already installed: $(. "$HOME/.nvm/nvm.sh" && nvm --version)"
+    else
+        log_info "Installing nvm $NVM_VERSION..."
+        PROFILE=/dev/null bash -c "curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh | bash"
+        log_success "nvm installed"
+        log_info "Open a new shell, then run 'nvm install --lts' to get Node"
+    fi
+    echo
+}
+
+# Homebrew keeps compose in its own prefix; the Docker CLI only discovers
+# plugins there once the directory is registered in ~/.docker/config.json.
+register_docker_cli_plugins() {
+    local plugin_dir config
+    plugin_dir="$(brew --prefix)/lib/docker/cli-plugins"
+    config="$HOME/.docker/config.json"
+
+    if [[ -f "$config" ]] && grep -q "$plugin_dir" "$config"; then
+        log_success "Compose plugin directory already registered"
+        return 0
+    fi
+
+    if [[ ! -s "$config" ]]; then
+        mkdir -p "$HOME/.docker"
+        cat > "$config" << EOF
+{
+  "cliPluginsExtraDirs": [
+    "$plugin_dir"
+  ]
+}
+EOF
+        log_success "Registered compose plugin directory in $config"
+    else
+        # Something already lives in the config; editing JSON blind would risk
+        # clobbering it, so hand the change back to the user.
+        log_warning "$config already exists - add this key manually:"
+        echo -e "    ${GREEN}\"cliPluginsExtraDirs\": [\"$plugin_dir\"]${NC}"
+    fi
+}
+
+# Docker. macOS cannot run containers natively, so Colima supplies the Linux VM
+# behind the standard docker CLI - open source, with none of the Docker Desktop
+# licensing conditions that apply to business use. Linux runs the engine direct.
+install_docker() {
+    log_info "Checking Docker installation..."
+    echo
+
+    if command -v docker &> /dev/null; then
+        log_success "Docker is already installed: $(docker --version)"
+    else
+        log_info "Installing Docker..."
+        pkg_install docker
+        log_success "Docker installed"
+    fi
+
+    if docker compose version &> /dev/null; then
+        log_success "Docker Compose is already installed: $(docker compose version --short)"
+    else
+        log_info "Installing Docker Compose..."
+        pkg_install docker-compose
+        [[ "$PKG_MANAGER" == "brew" ]] && register_docker_cli_plugins
+        log_success "Docker Compose installed"
+    fi
+
+    if [[ "$PKG_MANAGER" == "brew" ]]; then
+        if command -v colima &> /dev/null; then
+            log_success "Colima is already installed: $(colima version | head -1)"
+        else
+            log_info "Installing Colima (Docker Desktop replacement)..."
+            pkg_install colima
+            log_success "Colima installed"
+        fi
+
+        if colima status &> /dev/null; then
+            log_success "Colima VM is already running"
+        else
+            log_info "The Docker daemon needs the Colima VM. Start it with:"
+            echo -e "    ${GREEN}colima start --cpu 6 --memory 12 --disk 100 --vm-type vz --vz-rosetta${NC}"
+            log_info "To start it automatically at login:"
+            echo -e "    ${GREEN}brew services start colima${NC}"
+        fi
+    else
+        # Linux: the daemon is a system service and needs group membership
+        # before the CLI works without sudo.
+        if command -v systemctl &> /dev/null; then
+            log_info "Enabling the docker service..."
+            $SUDO systemctl enable --now docker || log_warning "Could not enable docker.service"
+        fi
+
+        if id -nG "$REAL_USER" | grep -qw docker; then
+            log_success "$REAL_USER is already in the docker group"
+        else
+            log_info "Adding $REAL_USER to the docker group..."
+            $SUDO usermod -aG docker "$REAL_USER" || log_warning "Could not add $REAL_USER to the docker group"
+            log_warning "Log out and back in for docker group membership to apply"
+        fi
+    fi
+    echo
+}
+
 install_atuin() {
     log_info "Checking Atuin installation..."
     echo
@@ -1032,6 +1198,9 @@ main() {
             install_maccy
             install_zoxide
             install_fzf
+            install_go
+            install_nvm
+            install_docker
             install_atuin
             install_zsh
             install_oh_my_zsh
