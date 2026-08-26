@@ -171,3 +171,13 @@ alias txs="$HOME/.local/bin/tmux-session"
 
 export PATH=$HOME/go/bin:$PATH
 export PATH="$HOME/.local/bin:$PATH"
+
+# Word-jump. Ghostty sets macos-option-as-alt, so Option+Left/Right arrive as
+# CSI 1;3D / 1;3C — which oh-my-zsh does not bind (it only binds the Ctrl
+# variants, 1;5D / 1;5C). Bind both, after atuin's init so nothing overwrites
+# them. AeroSpace deliberately leaves alt-left/alt-right unbound so these reach
+# the terminal at all; see .config/aerospace/aerospace.toml.
+bindkey '^[[1;3D' backward-word   # Option+Left
+bindkey '^[[1;3C' forward-word    # Option+Right
+bindkey '^[[1;5D' backward-word   # Ctrl+Left
+bindkey '^[[1;5C' forward-word    # Ctrl+Right

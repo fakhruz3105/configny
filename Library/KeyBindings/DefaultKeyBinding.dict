@@ -1,0 +1,21 @@
+/* Cocoa text-system key bindings — SECONDARY path, currently inert.
+ *
+ * Word-jumping normally happens on macOS's native Option+Left/Right, which
+ * works because AeroSpace deliberately leaves alt-left/alt-right unbound.
+ * This file additionally offers Ctrl+Arrow as an alternative, but macOS binds
+ * Ctrl+Left/Right to Mission Control's "Move left/right a space" (symbolic
+ * hotkeys 79-82), so these bindings do nothing until those are disabled in
+ * System Settings > Keyboard > Keyboard Shortcuts > Mission Control.
+ *
+ * ^ = Control, $ = Shift, ~ = Option, @ = Command
+ * \UF702 = Left arrow, \UF703 = Right arrow
+ *
+ * Honoured by AppKit text views and Chromium's doCommandBySelector: bridge.
+ * Terminals do their own key handling — the zsh side lives in .zshrc.
+ */
+{
+    "^\UF702"  = "moveWordLeft:";
+    "^\UF703"  = "moveWordRight:";
+    "^$\UF702" = "moveWordLeftAndModifySelection:";
+    "^$\UF703" = "moveWordRightAndModifySelection:";
+}

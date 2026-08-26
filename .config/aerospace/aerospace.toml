@@ -36,11 +36,11 @@ alt-k = 'focus down'
 alt-l = 'focus up'
 alt-semicolon = 'focus right'
 
-# alternatively, cursor keys
-alt-left = 'focus left'
+# alternatively, cursor keys. Left/right are deliberately absent: macOS uses
+# Option+Left/Right for word-jumping in every text field, so binding them here
+# would swallow that system-wide. Use alt-j / alt-semicolon for left/right.
 alt-down = 'focus down'
 alt-up = 'focus up'
-alt-right = 'focus right'
 
 # move focused window ($mod+Shift+j/k/l/;)
 alt-shift-j = 'move left'
@@ -48,18 +48,18 @@ alt-shift-k = 'move down'
 alt-shift-l = 'move up'
 alt-shift-semicolon = 'move right'
 
-# alternatively, cursor keys
-alt-shift-left = 'move left'
+# alternatively, cursor keys. Left/right absent for the same reason as above —
+# Option+Shift+Left/Right selects by word. Use alt-shift-j / alt-shift-semicolon.
 alt-shift-down = 'move down'
 alt-shift-up = 'move up'
-alt-shift-right = 'move right'
 
 # split in horizontal / vertical orientation ($mod+h / $mod+v)
 alt-h = 'split horizontal'
 alt-v = 'split vertical'
 
-# fullscreen toggle ($mod+f)
-alt-f = 'fullscreen'
+# fullscreen toggle (i3 uses $mod+f; moved to m for [m]aximise so that Option+F
+# stays free for forward-word in the shell, pairing with Option+B)
+alt-m = 'fullscreen'
 
 # change container layout ($mod+s stacking, $mod+w tabbed, $mod+e toggle split)
 # AeroSpace equivalents: v_accordion ~ stacking, h_accordion ~ tabbed

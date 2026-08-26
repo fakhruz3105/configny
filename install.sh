@@ -286,6 +286,9 @@ declare -A DOTFILES=(
     
     # Tmux
     [".tmux.conf"]="$HOME/.tmux.conf"
+
+    # macOS Cocoa key bindings (skipped on Linux by install_dotfiles)
+    ["Library/KeyBindings/DefaultKeyBinding.dict"]="$HOME/Library/KeyBindings/DefaultKeyBinding.dict"
 )
 
 # Config directories: source (relative to repo) -> destination (absolute path)
@@ -796,6 +799,11 @@ install_dotfiles() {
     echo
     
     for source in "${!DOTFILES[@]}"; do
+        # ~/Library is macOS-only; nothing reads it on Linux
+        if [[ "$(uname -s)" != "Darwin" && "$source" == Library/* ]]; then
+            log_info "Skipping $source (macOS-only)"
+            continue
+        fi
         local full_source="$DOTFILES_DIR/$source"
         local dest="${DOTFILES[$source]}"
         create_symlink "$full_source" "$dest"
