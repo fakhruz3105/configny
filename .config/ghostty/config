@@ -5,3 +5,11 @@ font-size = 14
 # key). AeroSpace grabs its own alt-bindings globally before Ghostty sees them,
 # so this only affects combos AeroSpace doesn't bind.
 macos-option-as-alt = true
+
+# Claude Code attaches clipboard images on Ctrl-V and cmd+v cannot be rebound
+# inside it (macOS reserves cmd+v), so send the raw 0x16 byte instead of doing a
+# terminal-side paste. Inside tmux, .config/tmux/smart-paste decides per pane
+# whether that means "attach image" or "paste text"; outside tmux use
+# cmd+ctrl+v for a plain text paste.
+keybind = super+v=text:\x16
+keybind = super+ctrl+v=paste_from_clipboard

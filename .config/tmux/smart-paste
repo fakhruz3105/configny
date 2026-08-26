@@ -1,0 +1,50 @@
+#!/bin/sh
+# Ctrl-V dispatcher for tmux — see the "Paste" section of ~/.tmux.conf.
+#
+# Ghostty maps Cmd+V to a literal Ctrl-V (0x16) because Claude Code reads
+# clipboard images on Ctrl-V and cmd+v cannot be bound inside Claude Code
+# (macOS reserves it). That would otherwise clobber Ctrl-V for every other
+# program, so route it per pane:
+#
+#   nvim / vim / fzf   -> pass 0x16 through (visual block, literal-next)
+#   Claude Code + image on the clipboard -> pass 0x16 through (attach image)
+#   anything else      -> a normal bracketed text paste
+#
+# Args: $1 = #{pane_tty}, $2 = #{pane_id}
+set -u
+
+tty=$1
+pane=$2
+
+if [ "$(uname)" = Darwin ]; then
+    clip_text() { pbpaste; }
+    clip_has_image() {
+        osascript -e 'clipboard info' 2>/dev/null | grep -q 'PNGf\|TIFF picture'
+    }
+else
+    clip_text() { xclip -selection clipboard -o; }
+    clip_has_image() {
+        xclip -selection clipboard -t TARGETS -o 2>/dev/null | grep -q '^image/'
+    }
+fi
+
+# Same foreground-process probe the vim-aware pane bindings use.
+fg=$(ps -o state= -o comm= -t "$tty" 2>/dev/null)
+fg_is() { printf '%s\n' "$fg" | grep -iqE "$1"; }
+
+if fg_is '^[^TXZ ]+ +(\S+/)?g?(view|n?vim?x?|fzf)(diff)?$'; then
+    tmux send-keys -t "$pane" C-v
+    exit 0
+fi
+
+if fg_is '^[^TXZ ]+ +(\S+/)?claude$' && clip_has_image; then
+    tmux send-keys -t "$pane" C-v
+    exit 0
+fi
+
+# -p keeps bracketed paste, -d drops the buffer again so clipboard text is not
+# left lying around in tmux. An empty or image-only clipboard is a no-op, not an
+# error, so neither command is allowed to fail the binding.
+clip_text | tmux load-buffer -b smart_paste - 2>/dev/null
+tmux paste-buffer -b smart_paste -d -p -t "$pane" 2>/dev/null
+exit 0
