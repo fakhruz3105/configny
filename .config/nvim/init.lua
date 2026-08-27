@@ -10,6 +10,31 @@ if vim.iter then
 	end
 end
 
+-- Shim the `all = false` option of vim.treesitter.query.add_predicate/add_directive
+-- (removed in nvim 0.12). nvim-treesitter's master branch still registers its
+-- predicates and directives with it and assumes each match entry is a single
+-- TSNode, so without this every fenced markdown block and every `<script
+-- type=...>` injection dies with "attempt to call method 'range' (a nil value)".
+do
+	local tsq = require("vim.treesitter.query")
+	for _, name in ipairs({ "add_predicate", "add_directive" }) do
+		local add = tsq[name]
+		tsq[name] = function(pname, handler, opts)
+			if type(opts) == "table" and opts.all == false then
+				local inner = handler
+				handler = function(match, ...)
+					local single = {}
+					for id, nodes in pairs(match) do
+						single[id] = nodes[#nodes]
+					end
+					return inner(single, ...)
+				end
+			end
+			return add(pname, handler, opts)
+		end
+	end
+end
+
 -- Lazyvim plugin
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
