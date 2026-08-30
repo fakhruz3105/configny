@@ -28,7 +28,10 @@ else
     REAL_HOME="${HOME:-$(eval echo ~$REAL_USER)}"
 fi
 
-# Override HOME to use the real user's home directory
+# Override HOME so the path lookups below resolve against the real user's home.
+# NOTE: this fixes *where* files land, not *who owns them*. Under sudo we are
+# still root, so every command that writes under $HOME must go through
+# run_as_user() or it leaves root-owned files in the user's home.
 HOME="$REAL_HOME"
 export HOME
 
@@ -296,26 +299,50 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Drop back to the invoking user for anything that writes under their home.
+# Running the whole script under sudo is required for the package-manager and
+# /etc steps, but user-level installers (rustup, atuin, oh-my-zsh, git clones)
+# must not run as root or they leave files the user cannot read or update.
+run_as_user() {
+    if [[ $EUID -eq 0 && "$REAL_USER" != "root" ]]; then
+        sudo -u "$REAL_USER" env \
+            HOME="$REAL_HOME" \
+            USER="$REAL_USER" \
+            LOGNAME="$REAL_USER" \
+            PATH="$REAL_HOME/.local/bin:$REAL_HOME/.cargo/bin:$REAL_HOME/.atuin/bin:$PATH" \
+            "$@"
+    else
+        "$@"
+    fi
+}
+
+# Is the command on the *user's* PATH? Under sudo the root PATH is usually
+# reset to secure_path, which misses ~/.cargo/bin and ~/.atuin/bin and would
+# make the checks below reinstall tools the user already has.
+user_has_cmd() {
+    run_as_user bash -c 'command -v "$1"' _ "$1" &> /dev/null
+}
+
 # Create a symlink with backup of existing file
 create_symlink() {
     local source="$1"
     local dest="$2"
     local backup_dir="$DOTFILES_DIR/.backup/$(date +%Y%m%d_%H%M%S)"
-    
+
     # Check if source exists
     if [[ ! -e "$source" ]]; then
         log_warning "Source does not exist: $source (skipping)"
         return 0
     fi
-    
+
     # Create parent directory if it doesn't exist
     local dest_dir
     dest_dir="$(dirname "$dest")"
     if [[ ! -d "$dest_dir" ]]; then
         log_info "Creating directory: $dest_dir"
-        mkdir -p "$dest_dir"
+        run_as_user mkdir -p "$dest_dir"
     fi
-    
+
     # Handle existing file/directory at destination
     if [[ -e "$dest" || -L "$dest" ]]; then
         # Check if it's already the correct symlink
@@ -323,16 +350,16 @@ create_symlink() {
             log_success "Already linked: $dest -> $source"
             return 0
         fi
-        
+
         # Backup existing file
-        mkdir -p "$backup_dir"
+        run_as_user mkdir -p "$backup_dir"
         local backup_path="$backup_dir/$(basename "$dest")"
         log_warning "Backing up existing: $dest -> $backup_path"
-        mv "$dest" "$backup_path"
+        run_as_user mv "$dest" "$backup_path"
     fi
-    
+
     # Create the symlink
-    ln -s "$source" "$dest"
+    run_as_user ln -s "$source" "$dest"
     log_success "Linked: $dest -> $source"
 }
 
@@ -423,21 +450,16 @@ install_dependencies() {
 install_rust() {
     log_info "Checking Rust installation..."
     echo
-    
-    if command -v rustc &> /dev/null && command -v cargo &> /dev/null; then
-        log_success "Rust is already installed: $(rustc --version)"
-        log_success "Cargo is available: $(cargo --version)"
+
+    if user_has_cmd rustc && user_has_cmd cargo; then
+        log_success "Rust is already installed: $(run_as_user rustc --version)"
+        log_success "Cargo is available: $(run_as_user cargo --version)"
     else
         log_info "Installing Rust via rustup..."
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        
-        # Source cargo env for current session
-        if [[ -f "$HOME/.cargo/env" ]]; then
-            source "$HOME/.cargo/env"
-        fi
-        
-        log_success "Rust installed: $(rustc --version)"
-        log_success "Cargo installed: $(cargo --version)"
+        run_as_user bash -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+
+        log_success "Rust installed: $(run_as_user rustc --version)"
+        log_success "Cargo installed: $(run_as_user cargo --version)"
         log_info "Rust environment added to ~/.cargo/env"
         log_info "Make sure to source it in your shell config or restart your terminal"
     fi
@@ -462,8 +484,8 @@ install_alacritty() {
     log_info "Checking Alacritty installation..."
     echo
 
-    if command -v alacritty &> /dev/null; then
-        log_success "Alacritty is already installed: $(alacritty --version)"
+    if user_has_cmd alacritty; then
+        log_success "Alacritty is already installed: $(run_as_user alacritty --version)"
         echo
         return 0
     fi
@@ -472,17 +494,17 @@ install_alacritty() {
     pkg_install alacritty
 
     # Some distros don't package Alacritty; fall back to cargo (needs Rust).
-    if ! command -v alacritty &> /dev/null; then
-        if command -v cargo &> /dev/null; then
+    if ! user_has_cmd alacritty; then
+        if user_has_cmd cargo; then
             log_warning "Package install failed; building Alacritty via cargo..."
-            cargo install alacritty
+            run_as_user cargo install alacritty
         else
             log_error "Could not install Alacritty automatically; install it manually."
         fi
     fi
 
-    if command -v alacritty &> /dev/null; then
-        log_success "Alacritty installed: $(alacritty --version)"
+    if user_has_cmd alacritty; then
+        log_success "Alacritty installed: $(run_as_user alacritty --version)"
     fi
     echo
 }
@@ -490,18 +512,13 @@ install_alacritty() {
 install_atuin() {
     log_info "Checking Atuin installation..."
     echo
-    
-    if command -v atuin &> /dev/null; then
-        log_success "Atuin is already installed: $(atuin --version)"
+
+    if user_has_cmd atuin; then
+        log_success "Atuin is already installed: $(run_as_user atuin --version)"
     else
         log_info "Installing Atuin via install script..."
-        curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
-        
-        # Source atuin env if available
-        if [[ -f "$HOME/.atuin/bin/env" ]]; then
-            source "$HOME/.atuin/bin/env"
-        fi
-        
+        run_as_user bash -c "curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh"
+
         log_success "Atuin installed"
         log_info "Add the following to your .zshrc to enable Atuin:"
         echo -e "    ${GREEN}eval \"\$(atuin init zsh)\"${NC}"
@@ -578,14 +595,17 @@ install_neovim() {
 install_oh_my_zsh() {
     log_info "Checking Oh-My-Zsh installation..."
     echo
-    
+
     if [[ -d "$HOME/.oh-my-zsh" ]]; then
         log_success "Oh-My-Zsh is already installed"
     else
         log_info "Installing Oh-My-Zsh..."
+        # Fetch as root (network only), execute as the user (writes to $HOME).
+        local omz_installer
+        omz_installer="$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
         # Install without running zsh immediately (RUNZSH=no)
         # Don't change shell again (CHSH=no) since we already did it
-        RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+        run_as_user env RUNZSH=no CHSH=no sh -c "$omz_installer"
         log_success "Oh-My-Zsh installed"
     fi
     echo
@@ -594,14 +614,14 @@ install_oh_my_zsh() {
 install_powerlevel10k() {
     log_info "Checking Powerlevel10k installation..."
     echo
-    
+
     local p10k_dir="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
-    
+
     if [[ -d "$p10k_dir" ]]; then
         log_success "Powerlevel10k is already installed"
     else
         log_info "Installing Powerlevel10k theme..."
-        git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$p10k_dir"
+        run_as_user git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$p10k_dir"
         log_success "Powerlevel10k installed"
         log_info "Make sure ZSH_THEME=\"powerlevel10k/powerlevel10k\" is set in your .zshrc"
     fi
@@ -611,45 +631,26 @@ install_powerlevel10k() {
 install_zsh_plugins() {
     log_info "Installing popular Zsh plugins..."
     echo
-    
+
     local custom_dir="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins"
-    
-    # zsh-autosuggestions
-    if [[ -d "$custom_dir/zsh-autosuggestions" ]]; then
-        log_success "zsh-autosuggestions already installed"
-    else
-        log_info "Installing zsh-autosuggestions..."
-        git clone https://github.com/zsh-users/zsh-autosuggestions "$custom_dir/zsh-autosuggestions"
-        log_success "zsh-autosuggestions installed"
-    fi
-    
-    # zsh-syntax-highlighting
-    if [[ -d "$custom_dir/zsh-syntax-highlighting" ]]; then
-        log_success "zsh-syntax-highlighting already installed"
-    else
-        log_info "Installing zsh-syntax-highlighting..."
-        git clone https://github.com/zsh-users/zsh-syntax-highlighting "$custom_dir/zsh-syntax-highlighting"
-        log_success "zsh-syntax-highlighting installed"
-    fi
-    
-    # fast-syntax-highlighting (alternative to zsh-syntax-highlighting)
-    if [[ -d "$custom_dir/fast-syntax-highlighting" ]]; then
-        log_success "fast-syntax-highlighting already installed"
-    else
-        log_info "Installing fast-syntax-highlighting..."
-        git clone https://github.com/zdharma-continuum/fast-syntax-highlighting "$custom_dir/fast-syntax-highlighting"
-        log_success "fast-syntax-highlighting installed"
-    fi
-    
-    # zsh-completions
-    if [[ -d "$custom_dir/zsh-completions" ]]; then
-        log_success "zsh-completions already installed"
-    else
-        log_info "Installing zsh-completions..."
-        git clone https://github.com/zsh-users/zsh-completions "$custom_dir/zsh-completions"
-        log_success "zsh-completions installed"
-    fi
-    
+
+    local name url
+    for entry in \
+        "zsh-autosuggestions https://github.com/zsh-users/zsh-autosuggestions" \
+        "zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-highlighting" \
+        "fast-syntax-highlighting https://github.com/zdharma-continuum/fast-syntax-highlighting" \
+        "zsh-completions https://github.com/zsh-users/zsh-completions"
+    do
+        read -r name url <<< "$entry"
+        if [[ -d "$custom_dir/$name" ]]; then
+            log_success "$name already installed"
+        else
+            log_info "Installing $name..."
+            run_as_user git clone "$url" "$custom_dir/$name"
+            log_success "$name installed"
+        fi
+    done
+
     log_info "Add these plugins to your .zshrc plugins array:"
     echo -e "    ${GREEN}plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-completions)${NC}"
     echo
@@ -712,13 +713,13 @@ install_omz_custom() {
 install_custom_scripts() {
     log_info "Installing custom scripts..."
     echo
-    
+
     # Ensure ~/.local/bin exists and is in PATH
     if [[ ! -d "$HOME/.local/bin" ]]; then
         log_info "Creating ~/.local/bin directory"
-        mkdir -p "$HOME/.local/bin"
+        run_as_user mkdir -p "$HOME/.local/bin"
     fi
-    
+
     if [[ ${#CUSTOM_SCRIPTS[@]} -eq 0 ]]; then
         log_info "No custom scripts to install"
     fi
@@ -729,7 +730,7 @@ install_custom_scripts() {
 
         # Make script executable
         if [[ -L "$dest" && -f "$full_source" ]]; then
-            chmod +x "$full_source"
+            run_as_user chmod +x "$full_source"
         fi
     done
     echo
@@ -760,11 +761,14 @@ install_system_files() {
         fi
 
         # Back up a differing existing file so a bad config can be reverted.
+        # The backup lives in the user's repo, so it stays user-owned.
         if [[ -f "$dest" ]]; then
             local backup_dir="$DOTFILES_DIR/.backup/$(date +%Y%m%d_%H%M%S)"
-            $SUDO mkdir -p "$backup_dir"
-            log_warning "Backing up existing: $dest -> $backup_dir/"
-            $SUDO cp -p "$dest" "$backup_dir/$(basename "$dest")"
+            local backup_path="$backup_dir/$(basename "$dest")"
+            run_as_user mkdir -p "$backup_dir"
+            log_warning "Backing up existing: $dest -> $backup_path"
+            $SUDO cp -p "$dest" "$backup_path"
+            $SUDO chown "$REAL_USER:$(id -gn "$REAL_USER")" "$backup_path"
         fi
 
         $SUDO install -D -o root -g root -m 644 "$full_source" "$dest"
@@ -823,14 +827,14 @@ install_tmux_plugins() {
         log_success "TPM already installed: $tpm_dir"
     else
         log_info "Cloning TPM into $tpm_dir"
-        git clone --depth 1 https://github.com/tmux-plugins/tpm "$tpm_dir"
+        run_as_user git clone --depth 1 https://github.com/tmux-plugins/tpm "$tpm_dir"
         log_success "TPM installed"
     fi
 
     # Install the plugins declared in ~/.tmux.conf without an interactive session
     if [[ -x "$tpm_dir/bin/install_plugins" ]]; then
         log_info "Installing tmux plugins (resurrect, continuum)..."
-        "$tpm_dir/bin/install_plugins" || \
+        run_as_user "$tpm_dir/bin/install_plugins" || \
             log_warning "Automatic plugin install failed; run 'prefix + I' inside tmux"
     else
         log_warning "TPM installer not found; run 'prefix + I' inside tmux to install plugins"
@@ -840,8 +844,12 @@ install_tmux_plugins() {
 
 check_path() {
     log_info "Checking if ~/.local/bin is in PATH..."
-    
-    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+
+    # Check the user's own login PATH, not root's reset PATH under sudo.
+    local user_path
+    user_path="$(run_as_user bash -lc 'printf %s "$PATH"' 2>/dev/null || printf %s "$PATH")"
+
+    if [[ ":$user_path:" != *":$HOME/.local/bin:"* ]]; then
         log_warning "~/.local/bin is not in your PATH"
         log_info "Add this line to your .zshrc or .bashrc:"
         echo -e "    ${GREEN}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
@@ -849,6 +857,53 @@ check_path() {
     else
         log_success "~/.local/bin is already in PATH"
     fi
+}
+
+# Undo root-owned files that earlier runs of this script left in the user's
+# home. Safe to run repeatedly; only touches paths this script manages.
+repair_ownership() {
+    log_info "Checking ownership of user files..."
+    echo
+
+    local group
+    group="$(id -gn "$REAL_USER")"
+
+    local paths=(
+        "$REAL_HOME/.cargo"
+        "$REAL_HOME/.rustup"
+        "$REAL_HOME/.atuin"
+        "$REAL_HOME/.oh-my-zsh"
+        "$REAL_HOME/.tmux"
+        "$REAL_HOME/.local/bin"
+        "$REAL_HOME/.local/share/atuin"
+        "$DOTFILES_DIR"
+    )
+    for dest in "${DOTFILES[@]}"; do paths+=("$dest"); done
+    for dest in "${CONFIG_DIRS[@]}"; do paths+=("$dest"); done
+
+    local target found=0
+    for target in "${paths[@]}"; do
+        [[ -e "$target" || -L "$target" ]] || continue
+        # -print -quit stops at the first offender, so this stays cheap.
+        if [[ -z "$(find "$target" ! -user "$REAL_USER" -print -quit 2>/dev/null)" ]]; then
+            continue
+        fi
+        found=$((found + 1))
+        if [[ $EUID -eq 0 ]]; then
+            # -h so a root-owned symlink is fixed without following it.
+            chown -R -h "$REAL_USER:$group" "$target"
+            log_success "Fixed ownership: $target"
+        else
+            log_warning "Root-owned files under: $target"
+        fi
+    done
+
+    if [[ $found -eq 0 ]]; then
+        log_success "All managed files are owned by $REAL_USER"
+    elif [[ $EUID -ne 0 ]]; then
+        log_info "Re-run with sudo to fix: sudo $0 repair"
+    fi
+    echo
 }
 
 #===============================================================================
@@ -906,6 +961,7 @@ Usage: $(basename "$0") [command]
 Commands:
     install     Install everything (default)
     uninstall   Remove all symlinks created by this script
+    repair      Fix root-owned files left in \$HOME by an earlier sudo run
     help        Show this help message
 
 Supported Distros:
@@ -969,6 +1025,7 @@ main() {
             install_custom_scripts
             install_system_files
             install_tmux_plugins
+            repair_ownership
             check_path
 
             log_success "Installation complete!"
@@ -978,6 +1035,9 @@ main() {
             ;;
         uninstall)
             uninstall
+            ;;
+        repair)
+            repair_ownership
             ;;
         help|--help|-h)
             show_help
