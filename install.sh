@@ -253,6 +253,7 @@ declare -A CONFIG_DIRS=(
     [".config/tmux"]="$HOME/.config/tmux"
     [".config/i3"]="$HOME/.config/i3"
     [".config/alacritty"]="$HOME/.config/alacritty"
+    [".config/touchegg"]="$HOME/.config/touchegg"
     # Add more as needed
 )
 
@@ -265,6 +266,14 @@ declare -A OMZ_CUSTOM=(
 # Custom scripts with specific destinations
 declare -A CUSTOM_SCRIPTS=(
     # Add custom scripts here, e.g. ["scripts/foo"]="$HOME/.local/bin/foo"
+)
+
+# System files: source (relative to repo) -> destination outside $HOME.
+# These are COPIED root-owned, never symlinked. Xorg parses its InputClass
+# config as root, so a symlink pointing into this user-writable repo would let
+# anything able to write the repo inject input configuration that root reads.
+declare -A SYSTEM_FILES=(
+    ["etc/X11/xorg.conf.d/30-touchpad.conf"]="/etc/X11/xorg.conf.d/30-touchpad.conf"
 )
 
 #===============================================================================
@@ -726,6 +735,79 @@ install_custom_scripts() {
     echo
 }
 
+install_system_files() {
+    log_info "Installing system files (requires root)..."
+    echo
+
+    if [[ ${#SYSTEM_FILES[@]} -eq 0 ]]; then
+        log_info "No system files configured, skipping"
+        echo
+        return 0
+    fi
+
+    for source in "${!SYSTEM_FILES[@]}"; do
+        local full_source="$DOTFILES_DIR/$source"
+        local dest="${SYSTEM_FILES[$source]}"
+
+        if [[ ! -f "$full_source" ]]; then
+            log_warning "Source does not exist: $full_source (skipping)"
+            continue
+        fi
+
+        if [[ -f "$dest" ]] && cmp -s "$full_source" "$dest"; then
+            log_success "Already current: $dest"
+            continue
+        fi
+
+        # Back up a differing existing file so a bad config can be reverted.
+        if [[ -f "$dest" ]]; then
+            local backup_dir="$DOTFILES_DIR/.backup/$(date +%Y%m%d_%H%M%S)"
+            $SUDO mkdir -p "$backup_dir"
+            log_warning "Backing up existing: $dest -> $backup_dir/"
+            $SUDO cp -p "$dest" "$backup_dir/$(basename "$dest")"
+        fi
+
+        $SUDO install -D -o root -g root -m 644 "$full_source" "$dest"
+        log_success "Installed: $dest (root:root 0644)"
+    done
+    echo
+    log_warning "Xorg reads input config at startup: log out and back in to apply."
+    echo
+}
+
+install_touchegg() {
+    log_info "Checking Touchegg (touchpad gestures)..."
+    echo
+
+    if command -v touchegg &> /dev/null; then
+        log_success "Touchegg is already installed"
+    else
+        if [[ "$PKG_MANAGER" == "unknown" ]]; then
+            log_warning "Unknown package manager; skipping Touchegg (gestures disabled)"
+            echo
+            return 0
+        fi
+        if ! pkg_install touchegg; then
+            log_warning "Touchegg unavailable for this distro; gestures disabled"
+            echo
+            return 0
+        fi
+    fi
+
+    # The recogniser runs as a system daemon. The per-session client is started
+    # from the i3 config, not here.
+    if command -v systemctl &> /dev/null; then
+        if systemctl is-enabled touchegg.service &> /dev/null; then
+            log_success "touchegg.service already enabled"
+        elif $SUDO systemctl enable --now touchegg.service; then
+            log_success "touchegg.service enabled"
+        else
+            log_warning "Could not enable touchegg.service; gestures will not work"
+        fi
+    fi
+    echo
+}
+
 install_tmux_plugins() {
     log_info "Setting up tmux plugins (TPM)..."
     echo
@@ -797,6 +879,17 @@ uninstall() {
         fi
     done
     
+    # System files are copies, not symlinks, so they need removing explicitly.
+    for source in "${!SYSTEM_FILES[@]}"; do
+        local dest="${SYSTEM_FILES[$source]}"
+        if [[ -f "$dest" ]] && cmp -s "$DOTFILES_DIR/$source" "$dest"; then
+            $SUDO rm -f "$dest"
+            log_success "Removed system file: $dest"
+        elif [[ -f "$dest" ]]; then
+            log_warning "Left in place (modified since install): $dest"
+        fi
+    done
+
     log_info "Uninstall complete. Check .backup directory to restore original files."
 }
 
@@ -833,8 +926,10 @@ The script will:
   4. Install Oh-My-Zsh framework
   5. Install Powerlevel10k theme
   6. Install popular Zsh plugins (autosuggestions, syntax-highlighting, completions)
-  7. Create symlinks from this repo to their correct locations
-  8. Backup any existing files before overwriting
+  7. Install Touchegg and enable touchegg.service (touchpad gestures)
+  8. Create symlinks from this repo to their correct locations
+  9. Copy system files (e.g. Xorg touchpad config) into place, root-owned
+ 10. Backup any existing files before overwriting
 
 Backups are stored in: $DOTFILES_DIR/.backup/
 
@@ -862,6 +957,7 @@ main() {
             install_neovim
             install_rust
             install_alacritty
+            install_touchegg
             install_atuin
             install_zsh
             install_oh_my_zsh
@@ -871,6 +967,7 @@ main() {
             install_config_dirs
             install_omz_custom
             install_custom_scripts
+            install_system_files
             install_tmux_plugins
             check_path
 
