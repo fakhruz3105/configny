@@ -724,6 +724,45 @@ EOF
     fi
 }
 
+# Colima as a login service. `brew services` runs `colima start -f` with no
+# flags of its own, so it inherits whatever sizing is saved in ~/.colima - the
+# VM has to be provisioned at the sizes we want before the service is created.
+register_colima_service() {
+    local status
+    status="$(brew services list 2>/dev/null | awk '$1 == "colima" { print $2 }')"
+
+    if [[ "$status" == "started" ]]; then
+        log_success "Colima already starts at login"
+        return 0
+    fi
+
+    if colima status &> /dev/null; then
+        # Handing a running VM to launchd means stopping it first, which takes
+        # any running containers down with it. That is the user's call to make.
+        log_warning "Colima is running but is not registered as a login service"
+        log_info "To hand it over to launchd (this restarts the VM):"
+        echo -e "    ${GREEN}colima stop && brew services start colima${NC}"
+        return 0
+    fi
+
+    if [[ ! -f "$HOME/.colima/default/colima.yaml" ]]; then
+        log_info "Provisioning the Colima VM - the first boot takes a few minutes..."
+        if ! colima start --cpu 6 --memory 12 --disk 100 --vm-type vz --vz-rosetta; then
+            log_warning "Could not provision the Colima VM - run 'colima start' to see why"
+            return 1
+        fi
+        # Sizing is now saved; hand the VM over to launchd to own from here.
+        colima stop &> /dev/null
+    fi
+
+    log_info "Registering Colima to start at login..."
+    if brew services start colima &> /dev/null; then
+        log_success "Colima will start at login - docker is ready once the VM boots"
+    else
+        log_warning "Could not register the service - start it with 'brew services start colima'"
+    fi
+}
+
 # Docker. macOS cannot run containers natively, so Colima supplies the Linux VM
 # behind the standard docker CLI - open source, with none of the Docker Desktop
 # licensing conditions that apply to business use. Linux runs the engine direct.
@@ -757,14 +796,7 @@ install_docker() {
             log_success "Colima installed"
         fi
 
-        if colima status &> /dev/null; then
-            log_success "Colima VM is already running"
-        else
-            log_info "The Docker daemon needs the Colima VM. Start it with:"
-            echo -e "    ${GREEN}colima start --cpu 6 --memory 12 --disk 100 --vm-type vz --vz-rosetta${NC}"
-            log_info "To start it automatically at login:"
-            echo -e "    ${GREEN}brew services start colima${NC}"
-        fi
+        register_colima_service
     else
         # Linux: the daemon is a system service and needs group membership
         # before the CLI works without sudo.
