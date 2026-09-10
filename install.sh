@@ -1031,6 +1031,44 @@ install_config_dirs() {
     echo
 }
 
+install_keyboard_layouts() {
+    if [[ "$(uname -s)" != "Darwin" ]]; then
+        log_info "Skipping keyboard layouts (macOS-only)"
+        return
+    fi
+
+    log_info "Installing keyboard layouts..."
+    echo
+
+    local src_dir="$DOTFILES_DIR/Library/Keyboard Layouts"
+    local dest_dir="$HOME/Library/Keyboard Layouts"
+
+    if [[ ! -d "$src_dir" ]]; then
+        log_info "No keyboard layouts to install"
+        echo
+        return
+    fi
+
+    mkdir -p "$dest_dir"
+
+    # HIToolbox does not reliably load symlinked .keylayout files, so copy them
+    # rather than going through create_symlink like the rest of the dotfiles.
+    local layout dest
+    for layout in "$src_dir"/*.keylayout; do
+        [[ -e "$layout" ]] || continue
+        dest="$dest_dir/$(basename "$layout")"
+        if [[ -f "$dest" ]] && cmp -s "$layout" "$dest"; then
+            log_info "Already current: $dest"
+        else
+            cp "$layout" "$dest"
+            log_success "Installed: $dest"
+        fi
+    done
+
+    log_info "Add layouts under System Settings > Keyboard > Text Input > Input Sources > Edit > + > Others"
+    echo
+}
+
 install_omz_custom() {
     log_info "Installing Oh-My-Zsh custom themes/plugins..."
     echo
@@ -1240,6 +1278,7 @@ main() {
             install_zsh_plugins
             install_dotfiles
             install_config_dirs
+            install_keyboard_layouts
             install_omz_custom
             install_custom_scripts
             install_tmux_plugins
