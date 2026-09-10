@@ -6,7 +6,10 @@
 # (macOS reserves it). That would otherwise clobber Ctrl-V for every other
 # program, so route it per pane:
 #
-#   nvim / vim / fzf   -> pass 0x16 through (visual block, literal-next)
+#   nvim / vim / fzf   -> pass 0x16 through; nvim binds <C-v> to a paste of
+#                        its own and decides per buffer, and vim/fzf still
+#                        want the raw byte (visual block, literal-next).
+#                        See .config/nvim/lua/util/paste.lua.
 #   Claude Code + image on the clipboard -> pass 0x16 through (attach image)
 #   anything else      -> a normal bracketed text paste
 #

@@ -27,6 +27,22 @@ end
 -- ';' used to repeat the last f/t search; h is now free, so it lands there.
 vim.keymap.set({ "n", "x", "o" }, "h", ";", with_desc("Repeat last f/t"))
 
+-- Paste. Ghostty sends Cmd+V as a literal Ctrl-V so that Claude Code can attach
+-- clipboard images (see .config/ghostty/config), and ~/.config/tmux/smart-paste
+-- passes that byte through to nvim panes untouched — so <C-v> is the paste key
+-- in here too. Nothing is given up: <C-q> is a builtin synonym for <C-v> in
+-- every mode it mattered in — blockwise-visual (:h CTRL-Q) and literal-next in
+-- insert and on the command line (:h i_CTRL-Q, :h c_CTRL-Q).
+-- Terminal buffers need a per-job decision, which util.paste makes.
+vim.keymap.set("n", "<C-v>", '"+p', with_desc("Paste from clipboard"))
+vim.keymap.set("x", "<C-v>", '"+P', with_desc("Replace selection with clipboard"))
+vim.keymap.set("i", "<C-v>", "<C-r><C-o>+", with_desc("Paste from clipboard"))
+-- Command line: no silent, or the line is not redrawn to show what landed.
+vim.keymap.set("c", "<C-v>", "<C-r>+", { noremap = true, desc = "Paste from clipboard" })
+vim.keymap.set("t", "<C-v>", function()
+	require("util.paste").terminal()
+end, with_desc("Paste from clipboard"))
+
 -- Clear search highlight
 vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>", opts)
 
