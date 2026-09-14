@@ -56,6 +56,23 @@ exec --no-startup-id copyq
 # Start dropbox
 exec --no-startup-id dropbox start
 
+# Touchpad gestures. i3 has no native gesture support, so Touchegg recognises
+# the swipe and drives i3 through i3-msg; the mappings live in
+# ~/.config/touchegg/touchegg.conf. The recogniser itself is a system daemon
+# (touchegg.service); this starts the per-session client.
+#
+# exec_always, not exec: i3 only re-runs exec_always on an in-place restart
+# ($mod+Shift+r), so a plain exec would leave the client dead after every
+# restart until a full logout.
+#
+# The guard must therefore be correct, since this runs on every restart. The
+# client is a bare "touchegg" with no arguments, so it is distinguished from
+# "touchegg --daemon" by the absence of that flag. pgrep -x matches on the
+# executable name only, so the shell running this guard cannot match itself
+# the way pgrep -f would. The package also ships an XDG autostart entry that
+# dex starts on a fresh login, which is the other duplicate this prevents.
+exec_always --no-startup-id sh -c 'pgrep -x touchegg -a | grep -qv -- --daemon || touchegg'
+
 # Wallpaper execution
 exec_always  --no-startup-id feh --bg-scale /home/razi/.config/i3/fedora-dark.png
 
