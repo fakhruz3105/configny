@@ -221,18 +221,26 @@ mode "resize" {
 
 bindsym $mod+r mode "resize"
 
+# $fm = main monitor (workspaces 1-8), $sm = secondary (workspace 9).
+# Laptop panel is the main one; the external display holds workspace 9.
+# Defined above the bar block on purpose: i3 expands variables in file order,
+# so a $var used before its "set" line is left unexpanded.
+set $fm eDP-1
+set $sm HDMI-1
+
 # Start i3bar to display a workspace bar (plus the system information i3status
 # finds out, if available)
 bar {
         status_command i3status
+
+        # Keep the system tray on the laptop panel, the output that holds
+        # workspaces 1-8, instead of letting it follow the primary output.
+        # The tray is per-output, not per-workspace, so it shows on every
+        # workspace of $fm and never on workspace 9's bar.
+        tray_output $fm
 }
 
 default_border pixel 0
-
-# $fm = main monitor (workspaces 1-8), $sm = secondary (workspace 9).
-# Laptop panel is the main one; the external display holds workspace 9.
-set $fm eDP-1
-set $sm HDMI-1
 
 workspace 1 output $fm
 workspace 2 output $fm
