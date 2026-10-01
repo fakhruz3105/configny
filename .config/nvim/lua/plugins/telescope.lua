@@ -7,6 +7,20 @@ return {
 	config = function()
 		local actions = require("telescope.actions")
 
+		-- Closing a picker mid-listing leaves its finder calling read_start on the
+		-- closed stdout pipe. luv <= 1.52.1-0 then frees that callback ref twice, so a
+		-- later Neovim callback runs telescope's reader ("async_job.lua:138: <id>").
+		-- Park the finder instead, as the failed read_start would. Fixed in luv 226a876.
+		local LinesPipe = require("telescope.async_job").LinesPipe
+		local read = LinesPipe.read
+		function LinesPipe:read()
+			if self.handle:is_closing() then
+				local _, rx = require("plenary.async").control.channel.oneshot()
+				return rx()
+			end
+			return read(self)
+		end
+
 		require("telescope").setup({
 			defaults = {
 				mappings = {
