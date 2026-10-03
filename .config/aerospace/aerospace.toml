@@ -6,14 +6,21 @@
 # otherwise identical to the i3 config. To use Cmd instead, replace 'alt-'
 # with 'cmd-' below.
 
+# https://nikitabobko.github.io/AeroSpace/guide#config-version
+config-version = 2
+
 start-at-login = true
+
+# Workspaces kept alive while empty. config-version 1 inferred this from the
+# 'workspace N' bindings below; version 2 needs it explicit (fallback is []).
+persistent-workspaces = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 
 # No peek strips in accordion (stacking) layout — each window looks fullscreen
 accordion-padding = 0
 
 # i3 does manual splits (mod+h / mod+v); AeroSpace's split command only works
 # with flat-container normalization disabled.
-enable-normalization-flat-containers = false
+enable-normalization-flatten-containers = false
 enable-normalization-opposite-orientation-for-nested-containers = false
 
 # default_border pixel 0 — macOS windows have no WM borders; nothing needed.
