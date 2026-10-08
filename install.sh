@@ -522,6 +522,13 @@ install_rust() {
         log_info "Rust environment added to ~/.cargo/env"
         log_info "Make sure to source it in your shell config or restart your terminal"
     fi
+
+    # The ~/.cargo/bin/rust-analyzer shim exists without the component, but
+    # fails with "Unknown binary"; rust-src is needed for std completions.
+    if command -v rustup &> /dev/null; then
+        log_info "Ensuring rust-analyzer and rust-src components..."
+        rustup component add rust-analyzer rust-src
+    fi
     echo
 }
 

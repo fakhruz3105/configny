@@ -23,6 +23,7 @@ return {
 					"json",
 					"java",
 					"go",
+					"rust",
 					"gitignore",
 					"graphql",
 					"yaml",

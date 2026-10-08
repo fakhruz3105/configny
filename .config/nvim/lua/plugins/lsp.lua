@@ -76,6 +76,15 @@ return {
 
 		local servers = {
 			gopls = {},
+			-- rust-analyzer comes from rustup (`rustup component add rust-analyzer
+			-- rust-src`), not Mason, so it always matches the active toolchain.
+			rust_analyzer = {
+				settings = {
+					["rust-analyzer"] = {
+						check = { command = "clippy" },
+					},
+				},
+			},
 			ts_ls = vue_plugin_available
 					and {
 						init_options = {
