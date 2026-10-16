@@ -1060,8 +1060,9 @@ install_keyboard_layouts() {
 
     # HIToolbox does not reliably load symlinked .keylayout files, so copy them
     # rather than going through create_symlink like the rest of the dotfiles.
+    # A layout's icon is the .icns of the same base name beside it.
     local layout dest
-    for layout in "$src_dir"/*.keylayout; do
+    for layout in "$src_dir"/*.keylayout "$src_dir"/*.icns; do
         [[ -e "$layout" ]] || continue
         dest="$dest_dir/$(basename "$layout")"
         if [[ -f "$dest" ]] && cmp -s "$layout" "$dest"; then
