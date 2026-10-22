@@ -272,11 +272,12 @@ declare -A CUSTOM_SCRIPTS=(
 )
 
 # System files: source (relative to repo) -> destination outside $HOME.
-# These are COPIED root-owned, never symlinked. Xorg parses its InputClass
+# These are COPIED root-owned, never symlinked. Xorg and logind parse their
 # config as root, so a symlink pointing into this user-writable repo would let
-# anything able to write the repo inject input configuration that root reads.
+# anything able to write the repo inject configuration that root reads.
 declare -A SYSTEM_FILES=(
     ["etc/X11/xorg.conf.d/30-touchpad.conf"]="/etc/X11/xorg.conf.d/30-touchpad.conf"
+    ["etc/systemd/logind.conf.d/50-power-key.conf"]="/etc/systemd/logind.conf.d/50-power-key.conf"
 )
 
 #===============================================================================
@@ -746,6 +747,7 @@ install_system_files() {
         return 0
     fi
 
+    local logind_changed=0
     for source in "${!SYSTEM_FILES[@]}"; do
         local full_source="$DOTFILES_DIR/$source"
         local dest="${SYSTEM_FILES[$source]}"
@@ -773,8 +775,19 @@ install_system_files() {
 
         $SUDO install -D -o root -g root -m 644 "$full_source" "$dest"
         log_success "Installed: $dest (root:root 0644)"
+        if [[ "$dest" == /etc/systemd/logind.conf.d/* ]]; then
+            logind_changed=1
+        fi
     done
     echo
+    # Reload, not restart: restarting logind tears down the running sessions.
+    if [[ $logind_changed -eq 1 ]]; then
+        if $SUDO systemctl reload systemd-logind; then
+            log_success "systemd-logind reloaded"
+        else
+            log_warning "Could not reload systemd-logind; reboot to apply power-key config"
+        fi
+    fi
     log_warning "Xorg reads input config at startup: log out and back in to apply."
     echo
 }
