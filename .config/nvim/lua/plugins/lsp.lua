@@ -33,6 +33,9 @@ return {
 				map("<leader>rn", vim.lsp.buf.rename, "[R]e[n]ame")
 				map("<leader>ca", vim.lsp.buf.code_action, "[C]ode [A]ction", { "n", "x" })
 				map("gD", vim.lsp.buf.declaration, "[G]oto [D]eclaration")
+				map("K", function()
+					vim.lsp.buf.hover({ border = "rounded", max_width = 80, max_height = 20 })
+				end, "Hover Documentation")
 				map("gl", vim.diagnostic.open_float, "Show [L]ine Diagnostics")
 				map("<leader>e", vim.diagnostic.open_float, "Show [E]rror Diagnostics")
 
