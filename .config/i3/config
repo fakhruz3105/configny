@@ -279,3 +279,7 @@ bindsym $mod+F3 exec --no-startup-id setxkbmap -layout ara && $refresh_i3status
 
 ## Refresh display layout after plugging or unplugging an external monitor
 bindsym $mod+p exec --no-startup-id /home/razi/.config/i3/display.sh
+
+## Caffeine: keep the screen on (no idle blank or lock) until toggled back.
+## The bar shows CAFFEINE while it is on; see caffeine.sh.
+bindsym $mod+i exec --no-startup-id /home/razi/.config/i3/caffeine.sh && $refresh_i3status
